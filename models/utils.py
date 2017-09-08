@@ -127,7 +127,7 @@ class HnCorpus(object):
             if os.path.exists(self.cache_path):
                 self.cache = FileStreamingCorpus.init_from_file(self.cache_path)
             else:
-                self.cache = FileStreamingCorpus.init_from_stream(self.article_tokens_from_text(max_count), self.cache_path)
+                self.cache = FileStreamingCorpus.init_from_stream(self.article_tokens_from_text(), self.cache_path)
 
     def stream_articles(self, max_count=None):
         for article_id, article_text in self.stream_articles_text(max_count):
