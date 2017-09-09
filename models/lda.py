@@ -11,7 +11,7 @@ from gensim.models import ldamodel, hdpmodel, ldamulticore
 from gensim.models.wrappers import ldamallet
 from gensim.corpora import Dictionary
 from itertools import islice
-from IPython.display import display
+from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
 import pandas as pd
 import plotly.plotly as py
@@ -133,6 +133,26 @@ class HnLdaModel(object):
         topic_ids_and_probs = self.get_article_topics(article_id, min_prob)
         for topic_id, topic_prob in topic_ids_and_probs:
             print('Topic #%d (%.2f): %s' % (topic_id, topic_prob, self.model.print_topic(topic_id)))
+
+    def init_topic_similarity_matrices(self):
+        self.topic_doc_similarities = cosine_similarity(self.article_topic_matrix.T, self.article_topic_matrix.T)
+        topic_word_vectors = self.model.wordtopics / self.model.wordtopics.sum(axis=1)[:, np.newaxis]
+        self.topic_word_similarities = cosine_similarity(topic_word_vectors, topic_word_vectors)
+
+    def get_similar_topics(self, topic_id, top_n=10, min_similarity=0.0, use_word_sims=False):
+        if use_word_sims:
+            topic_similarities = self.topic_word_similarities
+        else:
+            topic_similarities = self.topic_doc_similarities
+        similar_topics = np.argsort(-topic_similarities[topic_id, :])[1:1+top_n]  # Remove index for similarity with self
+        return similar_topics, topic_similarities[topic_id][similar_topics]
+
+    def print_similar_topics(self, topic_id, top_n=10, min_similarity=0.0, use_word_sims=False):
+        similar_topics, similarities = self.get_similar_topics(topic_id, top_n, min_similarity, use_word_sims)
+        print('Topic #%d: %s' % (topic_id, self.model.print_topic(topic_id)))
+        print('\nTopics similar to topic #%d---------------------------' % topic_id)
+        for similar_topic_id, similarity in zip(similar_topics, similarities):
+            print('Topic #%d (%.2f): %s' % (similar_topic_id, similarity, self.model.print_topic(similar_topic_id)))
 
 
 class HnLdaMalletModel(HnLdaModel):
