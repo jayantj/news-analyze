@@ -8,6 +8,7 @@ import pickle
 import multiprocessing
 
 from gensim.models import ldamodel, hdpmodel, ldamulticore
+from gensim.models.wrappers import ldamallet
 from gensim.corpora import Dictionary
 from itertools import islice
 from IPython.display import display
@@ -133,3 +134,22 @@ class HnLdaModel(object):
         for topic_id, topic_prob in topic_ids_and_probs:
             print('Topic #%d (%.2f): %s' % (topic_id, topic_prob, self.model.print_topic(topic_id)))
 
+
+class HnLdaMalletModel(HnLdaModel):
+    def __init__(self, mallet_path, corpus, workers=1, **model_params):
+        super(HnLdaMalletModel, self).__init__(corpus, workers, model_params)
+        self.mallet_path = mallet_path
+
+    def infer_topics(self, article_bows):
+        return self.model[article_bows]
+
+    def train(self):
+        self.model = ldamallet.LdaMallet(
+            self.mallet_path,
+            self.corpus,
+            **dict(
+                self.model_params,
+                id2word=self.corpus.dictionary,
+                workers=self.workers)
+            )
+        self.save_article_topics()
