@@ -212,3 +212,12 @@ class HnCorpus(object):
         created_date_counts = pd.rolling_mean(created_date_counts, window=window_size, center=True)
         plot_data = [go.Scatter(x=created_date_counts.index, y=created_date_counts.values)]
         return py.iplot(plot_data)
+
+    def print_article(self, article_id, max_article_length=500):
+        article_metadata = self.get_articles([article_id]).iloc[0]
+        title = article_metadata['title']
+        url = article_metadata['url']
+        print('---------------------------------------------------------------------')
+        print('Article #%d - %s\n%s\n' % (article_id, url, title))
+        print(self.get_article_text(article_id, max_length=max_article_length))
+        print('\n')
