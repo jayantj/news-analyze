@@ -92,8 +92,10 @@ class HnLdaModel(object):
             chunk = list(islice(article_stream, chunk_size))
         self.article_topic_matrix = np.array(article_topic_matrix)
 
-    def get_topic_articles(self, topic_id, min_prob=0.1):
-        article_probs = self.article_topic_matrix[:, topic_id]
+    def get_topic_articles(self, topic_ids, min_prob=0.1):
+        if not isinstance(topic_ids, (list, tuple)):
+            topic_ids = [topic_ids]
+        article_probs = self.article_topic_matrix[:, topic_ids].sum(axis=1) / len(topic_ids)
         trimmed_idxs = np.where(article_probs > min_prob)[0]
         sorted_idxs = sorted(trimmed_idxs, key=lambda idx: -article_probs[idx])
         return [(self.row_article_id_mapping[idx], article_probs[idx]) for idx in sorted_idxs]
@@ -105,18 +107,18 @@ class HnLdaModel(object):
         sorted_idxs = sorted(trimmed_idxs, key=lambda idx: -topic_probs[idx])
         return [(idx, topic_probs[idx]) for idx in sorted_idxs]
 
-    def plot_topic(self, topic_id, min_prob=0.1, window_size=30):
-        article_ids, article_probs = zip(*self.get_topic_articles(topic_id, min_prob))
+    def plot_topic(self, topic_ids, min_prob=0.1, window_size=30):
+        article_ids, article_probs = zip(*self.get_topic_articles(topic_ids, min_prob))
         articles = self.corpus.get_articles(article_ids)
         articles['topic_score'] = article_probs
         topic_score_over_time = articles.groupby('created_date')['topic_score'].sum()
         topic_score_over_time = pd.rolling_mean(topic_score_over_time, window=window_size, center=True)
         plot_data = [go.Scatter(x=topic_score_over_time.index, y=topic_score_over_time.values)]
-        print(self.model.print_topic(topic_id))
+        self.print_topics(topic_ids)
         return py.iplot(plot_data)
 
     def show_topic_articles(self, topic_id, min_prob=0.1, max_article_length=500):
-        print(self.model.print_topic(topic_id))
+        self.print_topics(topic_id)
         article_ids_and_probs = self.get_topic_articles(topic_id, min_prob)
         if not article_ids_and_probs:
             print('No articles found for topic %d' % topic_id)
@@ -147,9 +149,15 @@ class HnLdaModel(object):
         similar_topics = np.argsort(-topic_similarities[topic_id, :])[1:1+top_n]  # Remove index for similarity with self
         return similar_topics, topic_similarities[topic_id][similar_topics]
 
-    def print_similar_topics(self, topic_id, top_n=10, min_similarity=0.0, use_word_sims=False):
+    def print_topics(self, topic_ids):
+        if not isinstance(topic_ids, (list, tuple)):
+            topic_ids = [topic_ids]
+        for topic_id in topic_ids:
+            print('Topic #%d: %s' % (topic_id, self.model.print_topic(topic_id)))
+
+    def show_similar_topics(self, topic_id, top_n=10, min_similarity=0.0, use_word_sims=False):
         similar_topics, similarities = self.get_similar_topics(topic_id, top_n, min_similarity, use_word_sims)
-        print('Topic #%d: %s' % (topic_id, self.model.print_topic(topic_id)))
+        self.print_topics(topic_id)
         print('\nTopics similar to topic #%d---------------------------' % topic_id)
         for similar_topic_id, similarity in zip(similar_topics, similarities):
             print('Topic #%d (%.2f): %s' % (similar_topic_id, similarity, self.model.print_topic(similar_topic_id)))
