@@ -185,7 +185,10 @@ class HnCorpus(object):
 
     def article_tokens_from_disk(self, max_count=None):
         self.init_cache()
-        return self.cache.__iter__()
+        for i, (article_id, article_tokens) in enumerate(self.cache, start=1):
+            yield article_id, article_tokens
+            if i >= max_count:
+                break
 
     def __getitem__(self, article_ids):
         if not self.cache_path:
