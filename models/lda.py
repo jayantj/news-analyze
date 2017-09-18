@@ -164,7 +164,7 @@ class HnLdaModel(object):
 
 class HnLdaMalletModel(HnLdaModel):
     def __init__(self, mallet_path, corpus, workers=1, **model_params):
-        super(HnLdaMalletModel, self).__init__(corpus, workers, model_params)
+        super(HnLdaMalletModel, self).__init__(corpus, workers, **model_params)
         self.mallet_path = mallet_path
 
     def infer_topics(self, article_bows):
