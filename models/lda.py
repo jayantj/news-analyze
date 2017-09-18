@@ -16,7 +16,6 @@ import numpy as np
 import pandas as pd
 import plotly as py
 import plotly.graph_objs as go
-import spacy
 
 from .utils import HnCorpus, parse_date
 
@@ -110,9 +109,9 @@ class HnLdaModel(object):
     def plot_topic(self, topic_ids, min_prob=0.1, window_size=30):
         article_ids, article_probs = zip(*self.get_topic_articles(topic_ids, min_prob))
         articles = self.corpus.get_articles(article_ids)
-        articles['topic_score'] = article_probs
+        articles = articles.assign(topic_score=article_probs)
         topic_score_over_time = articles.groupby('created_date')['topic_score'].sum()
-        topic_score_over_time = pd.rolling_mean(topic_score_over_time, window=window_size, center=True)
+        topic_score_over_time = topic_score_over_time.rolling(window=window_size, center=True).mean()
         plot_data = [go.Scatter(x=topic_score_over_time.index, y=topic_score_over_time.values)]
         self.print_topics(topic_ids)
         return py.offline.iplot(plot_data)
