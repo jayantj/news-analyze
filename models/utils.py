@@ -93,16 +93,14 @@ class FileStreamingCorpus(object):
     def load_index(self):
         self.item_index = pickle.load(open(self.filename + '.idx', 'rb'))
 
-    def get(self, item_ids):
+    def get(self, item_id):
         if not self.item_index:
             self.load_index()
-        items = []
         with open(self.filename, 'rb') as f:
-            for item_id in item_ids:
-                item_position = self.item_index[item_id]
-                f.seek(item_position)
-                items.append(pickle.load(f))
-        return items
+            item_position = self.item_index[item_id]
+            f.seek(item_position)
+            item = pickle.load(f)
+        return item
 
     def __iter__(self):
         with open(self.filename, 'rb') as f:
@@ -187,15 +185,15 @@ class HnCorpus(object):
         self.init_cache()
         for i, (article_id, article_tokens) in enumerate(self.cache, start=1):
             yield article_id, article_tokens
-            if i >= max_count:
+            if max_count is not None and i >= max_count:
                 break
 
-    def __getitem__(self, article_ids):
+    def __getitem__(self, article_id):
         if not self.cache_path:
             raise ValueError('Cannot fetch random article without cache')
         self.init_cache()
-        articles = self.cache.get(article_ids)
-        return [self.dictionary.doc2bow(article_tokens) for _, article_tokens in articles]
+        article_id, article_tokens = self.cache.get(article_id)
+        return self.dictionary.doc2bow(article_tokens)
 
     def get_articles(self, article_ids):
         if not len(self.metadata):
