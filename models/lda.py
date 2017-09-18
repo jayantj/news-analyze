@@ -14,7 +14,7 @@ from itertools import islice
 from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
 import pandas as pd
-import plotly.plotly as py
+import plotly as py
 import plotly.graph_objs as go
 import spacy
 
@@ -115,7 +115,7 @@ class HnLdaModel(object):
         topic_score_over_time = pd.rolling_mean(topic_score_over_time, window=window_size, center=True)
         plot_data = [go.Scatter(x=topic_score_over_time.index, y=topic_score_over_time.values)]
         self.print_topics(topic_ids)
-        return py.iplot(plot_data)
+        return py.offline.iplot(plot_data)
 
     def show_topic_articles(self, topic_id, min_prob=0.1, max_article_length=500):
         self.print_topics(topic_id)
