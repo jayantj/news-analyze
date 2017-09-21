@@ -90,6 +90,7 @@ class HnLdaModel(object):
                         len(article_topics), len(article_topic_matrix), article_id)
             chunk = list(islice(article_stream, chunk_size))
         self.article_topic_matrix = np.array(article_topic_matrix)
+        self.init_topic_similarity_matrices()
 
     def get_topic_articles(self, topic_ids, min_prob=0.1):
         if not isinstance(topic_ids, (list, tuple)):
@@ -136,15 +137,31 @@ class HnLdaModel(object):
             print('Topic #%d (%.2f): %s' % (topic_id, topic_prob, self.model.print_topic(topic_id)))
 
     def init_topic_similarity_matrices(self):
+        # doc-based similarity
         self.topic_doc_similarities = cosine_similarity(self.article_topic_matrix.T, self.article_topic_matrix.T)
+
+        # word-based similarity
         topic_word_vectors = self.model.wordtopics / self.model.wordtopics.sum(axis=1)[:, np.newaxis]
         self.topic_word_similarities = cosine_similarity(topic_word_vectors, topic_word_vectors)
 
-    def get_similar_topics(self, topic_id, top_n=10, min_similarity=0.0, use_word_sims=False):
-        if use_word_sims:
-            topic_similarities = self.topic_word_similarities
+        # jaccard similarity
+        topic_vectors = self.article_topic_matrix.T > 0.02
+        topic_vectors_repeated = np.repeat(topic_vectors[:, :, np.newaxis], topic_vectors.shape[0], axis=2).swapaxes(0, 2)
+        topic_vectors_intersection = np.logical_and(topic_vectors[:, :, np.newaxis], topic_vectors_repeated).sum(axis=1)
+        topic_vectors_union = np.logical_or(topic_vectors[:, :, np.newaxis], topic_vectors_repeated).sum(axis=1)
+        topic_jaccard_similarities = topic_vectors_intersection / topic_vectors_union
+        self.topic_jaccard_similarities = topic_jaccard_similarities
+
+    def get_similarity_matrix(self, metric):
+        if metric == 'word_sim':
+            return self.topic_word_similarities
+        elif metric == 'doc_sim':
+            return self.topic_doc_similarities
         else:
-            topic_similarities = self.topic_doc_similarities
+            return self.topic_jaccard_similarities
+
+    def get_similar_topics(self, topic_id, top_n=10, min_similarity=0.0, metric='jaccard'):
+        topic_similarities = self.get_similarity_matrix(metric)
         similar_topics = np.argsort(-topic_similarities[topic_id, :])[1:1+top_n]  # Remove index for similarity with self
         return similar_topics, topic_similarities[topic_id][similar_topics]
 
@@ -154,8 +171,8 @@ class HnLdaModel(object):
         for topic_id in topic_ids:
             print('Topic #%d: %s' % (topic_id, self.model.print_topic(topic_id)))
 
-    def show_similar_topics(self, topic_id, top_n=10, min_similarity=0.0, use_word_sims=False):
-        similar_topics, similarities = self.get_similar_topics(topic_id, top_n, min_similarity, use_word_sims)
+    def show_similar_topics(self, topic_id, top_n=10, min_similarity=0.0, metric='jaccard'):
+        similar_topics, similarities = self.get_similar_topics(topic_id, top_n, min_similarity, metric)
         self.print_topics(topic_id)
         print('\nTopics similar to topic #%d---------------------------' % topic_id)
         for similar_topic_id, similarity in zip(similar_topics, similarities):
