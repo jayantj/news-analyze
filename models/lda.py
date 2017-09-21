@@ -14,7 +14,7 @@ from itertools import islice
 from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
 import pandas as pd
-import plotly as py
+import plotly.plotly as py
 import plotly.graph_objs as go
 
 from .utils import HnCorpus, parse_date
@@ -106,7 +106,7 @@ class HnLdaModel(object):
         sorted_idxs = sorted(trimmed_idxs, key=lambda idx: -topic_probs[idx])
         return [(idx, topic_probs[idx]) for idx in sorted_idxs]
 
-    def plot_topic(self, topic_ids, min_prob=0.1, window_size=30):
+    def topic_trend_plot(self, topic_ids, min_prob=0.1, window_size=30):
         article_ids, article_probs = zip(*self.get_topic_articles(topic_ids, min_prob))
         articles = self.corpus.get_articles(article_ids)
         articles = articles.assign(topic_score=article_probs)
@@ -114,7 +114,7 @@ class HnLdaModel(object):
         topic_score_over_time = topic_score_over_time.rolling(window=window_size, center=True).mean()
         plot_data = [go.Scatter(x=topic_score_over_time.index, y=topic_score_over_time.values)]
         self.print_topics(topic_ids)
-        return py.offline.iplot(plot_data)
+        return plot_data
 
     def show_topic_articles(self, topic_id, min_prob=0.1, max_article_length=500):
         self.print_topics(topic_id)
