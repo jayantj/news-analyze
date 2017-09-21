@@ -186,6 +186,29 @@ class HnLdaModel(object):
         for similar_topic_id, similarity in zip(similar_topics, similarities):
             print('Topic #%d (%.2f): %s\n' % (similar_topic_id, similarity, self.model.print_topic(similar_topic_id)))
 
+    def get_most_similar_topic_pairs(self, top_n=20, metric='jaccard'):
+        topic_similarities = np.copy(self.get_similarity_matrix(metric))
+        np.fill_diagonal(topic_similarities, 0)  # Remove topic similarities with itself
+        num_topics = topic_similarities.shape[0]
+        topic_similarities = topic_similarities.reshape(-1)
+        indices = np.argsort(-topic_similarities)
+        topic_pairs, topic_scores = [], []
+        for idx in indices:
+            if len(topic_pairs) == top_n:
+                break
+            topic_1, topic_2 = idx // num_topics, idx % num_topics
+            if topic_2 > topic_1:  # Avoid repeating same topic combination twice
+                continue
+            topic_pairs.append((topic_1, topic_2))
+            topic_scores.append(topic_similarities[idx])
+        return topic_pairs, topic_scores
+
+    def show_most_similar_topic_pairs(self, top_n=20, metric='jaccard'):
+        topic_pairs, topic_scores = self.get_most_similar_topic_pairs(top_n, metric)
+        for topic_pair, topic_score in zip(topic_pairs, topic_scores):
+            print(topic_score)
+            self.print_topics(topic_pair)
+
 
 class HnLdaMalletModel(HnLdaModel):
     def __init__(self, mallet_path, corpus, workers=1, **model_params):
