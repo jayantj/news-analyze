@@ -9,6 +9,7 @@ import multiprocessing
 from gensim.corpora import Dictionary, MmCorpus
 from gensim.models import Phrases
 from dateutil import parser as date_parser
+import datetime
 import pandas as pd
 import plotly.plotly as py
 import plotly.graph_objs as go
@@ -20,9 +21,11 @@ nlp = spacy.load('en')
 DATA_DIR = 'data/'
 
 
-def parse_date(date_str):
-    parsed = date_parser.parse(date_str)
-    return parsed.date()
+def parse_date(timestamp):
+    return timestamp.date()
+
+def parse_month_year(timestamp):
+    return datetime.datetime(year=timestamp.year, month=timestamp.month, day=1)
 
 def decode_bytes(bytes_, encoding='utf8', max_char_bytes=4):
     try:
@@ -118,6 +121,7 @@ class HnCorpus(object):
         self.preprocess = preprocess
         self.dictionary = None
         if len(metadata):
+            metadata['created_at'] = pd.to_datetime(metadata['created_at'])
             metadata['created_date'] = metadata['created_at'].apply(parse_date)
         self.metadata = metadata
         self.cache_path = cache_path
@@ -151,6 +155,10 @@ class HnCorpus(object):
                     continue
             else:
                 yield Article(article_id, article_text)
+
+    def __contains__(self, article_id):
+        full_filename = os.path.join(self.dirname, "%d.txt" % article_id)
+        return os.path.isfile(full_filename)
 
     def stream_articles_text(self, max_count=None):
         count = 0
@@ -236,3 +244,35 @@ class HnCorpus(object):
         print('Article #%d - %s\n%s\n' % (article_id, url, title))
         print(self.get_article_text(article_id, max_length=max_article_length))
         print('\n')
+
+
+class HnDtmCorpus(HnCorpus):
+    def get_time_slices(self):
+        article_ids = list(self.stream_article_ids())
+        article_metadata = self.get_articles(article_ids)
+        created_month_year = article_metadata['created_at'].apply(parse_month_year)
+        counts = created_month_year.groupby(created_month_year).count()
+        assert counts.sum() == len(article_ids)
+        return list(counts.values)
+
+    def stream_article_ids(self, max_count=None):
+        if not len(self.metadata):
+            raise ValueError('Cannot use HnDtmCorpus without metadata')
+        for article_id in self.metadata.sort_values('created_at')['id'].values:
+            if article_id in self:
+                yield article_id
+
+    def article_tokens_from_text(self, max_count=None):
+        for article_id in self.stream_article_ids(max_count):
+            article_text = self.get_article_text(article_id)
+            doc = nlp(article_text)
+            article_tokens = [token.lemma_.lower() for token in doc if token.is_alpha]
+            yield article_id, article_tokens
+
+    def article_tokens_from_disk(self, max_count=None):
+        self.init_cache()
+        for i, article_id in enumerate(self.stream_article_ids(), start=1):
+            _, article_tokens = self.cache.get(article_id)
+            yield article_id, article_tokens
+            if max_count is not None and i >= max_count:
+                break
