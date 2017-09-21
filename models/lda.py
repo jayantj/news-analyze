@@ -171,18 +171,20 @@ class HnLdaModel(object):
         similar_topics = np.argsort(-topic_similarities[topic_id, :])[1:1+top_n]  # Remove index for similarity with self
         return similar_topics, topic_similarities[topic_id][similar_topics]
 
-    def print_topics(self, topic_ids):
+    def print_topics(self, topic_ids=[]):
         if not isinstance(topic_ids, (list, tuple)):
             topic_ids = [topic_ids]
+        if not topic_ids:
+            topic_ids = np.argsort(-self.topic_scores)
         for topic_id in topic_ids:
-            print('Topic #%d: %s' % (topic_id, self.model.print_topic(topic_id)))
+            print('Topic #%d: %s\n' % (topic_id, self.model.print_topic(topic_id)))
 
     def show_similar_topics(self, topic_id, top_n=10, min_similarity=0.0, metric='jaccard'):
         similar_topics, similarities = self.get_similar_topics(topic_id, top_n, min_similarity, metric)
         self.print_topics(topic_id)
         print('\nTopics similar to topic #%d---------------------------' % topic_id)
         for similar_topic_id, similarity in zip(similar_topics, similarities):
-            print('Topic #%d (%.2f): %s' % (similar_topic_id, similarity, self.model.print_topic(similar_topic_id)))
+            print('Topic #%d (%.2f): %s\n' % (similar_topic_id, similarity, self.model.print_topic(similar_topic_id)))
 
 
 class HnLdaMalletModel(HnLdaModel):
