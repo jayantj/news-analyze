@@ -136,6 +136,12 @@ class HnLdaModel(object):
         for topic_id, topic_prob in topic_ids_and_probs:
             print('Topic #%d (%.2f): %s' % (topic_id, topic_prob, self.model.print_topic(topic_id)))
 
+    def init_topic_scores(self, min_threshold=0.1):
+        topic_vectors_mask = self.article_topic_matrix < min_threshold
+        topic_vectors_masked = np.ma.array(self.article_topic_matrix, mask=topic_vectors_mask)
+        topic_vector_scores = np.ma.median(topic_vectors_masked, axis=0)
+        self.topic_scores = topic_vector_scores
+
     def init_topic_similarity_matrices(self):
         # doc-based similarity
         self.topic_doc_similarities = cosine_similarity(self.article_topic_matrix.T, self.article_topic_matrix.T)
