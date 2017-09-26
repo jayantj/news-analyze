@@ -84,8 +84,9 @@ class HnLdaModel(object):
             chunk_topics = self.infer_topics(article_bows)
             for article_id, article_topics in zip(article_ids, chunk_topics):
                 topic_ids, topic_probs = zip(*article_topics)
-                assert topic_ids == tuple(range(self.model.num_topics))
-                article_topic_matrix.append(topic_probs)
+                prob_scores = np.zeros(self.model.num_topics)
+                prob_scores[list(topic_ids)] = topic_probs
+                article_topic_matrix.append(prob_scores)
                 self.row_article_id_mapping[len(article_topic_matrix) - 1] = article_id
                 self.article_id_row_mapping[article_id] = len(article_topic_matrix) - 1
                 if not (len(article_topic_matrix) % 500):
@@ -95,6 +96,7 @@ class HnLdaModel(object):
             chunk = list(islice(article_stream, chunk_size))
         self.article_topic_matrix = np.array(article_topic_matrix)
         self.init_topic_similarity_matrices()
+        self.init_topic_scores()
 
     def get_topic_articles(self, topic_ids, min_prob=0.1):
         if not isinstance(topic_ids, (list, tuple)):
