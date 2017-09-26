@@ -158,16 +158,15 @@ class HnLdaModel(object):
         topic_vector_scores = np.ma.median(topic_vectors_masked, axis=0)
         self.topic_scores = topic_vector_scores
 
-    def init_topic_similarity_matrices(self):
+    def init_topic_similarity_matrices(self, jaccard_threshold=0.15):
         # doc-based similarity
         self.topic_doc_similarities = cosine_similarity(self.article_topic_matrix.T, self.article_topic_matrix.T)
 
         # word-based similarity
-        topic_word_vectors = self.model.wordtopics / self.model.wordtopics.sum(axis=1)[:, np.newaxis]
-        self.topic_word_similarities = cosine_similarity(topic_word_vectors, topic_word_vectors)
+        self.topic_word_similarities = cosine_similarity(self.topic_word_matrix, self.topic_word_matrix)
 
         # jaccard similarity
-        topic_vectors = self.article_topic_matrix.T > 0.02
+        topic_vectors = self.article_topic_matrix.T > jaccard_threshold
         topic_vectors_repeated = np.repeat(topic_vectors[:, :, np.newaxis], topic_vectors.shape[0], axis=2).swapaxes(0, 2)
         topic_vectors_intersection = np.logical_and(topic_vectors[:, :, np.newaxis], topic_vectors_repeated).sum(axis=1)
         topic_vectors_union = np.logical_or(topic_vectors[:, :, np.newaxis], topic_vectors_repeated).sum(axis=1)
