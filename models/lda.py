@@ -133,16 +133,16 @@ class HnLdaModel(object):
         article_ids_and_probs = self.get_topic_articles(topic_id, min_prob)
         if not article_ids_and_probs:
             print('No articles found for topic %d' % topic_id)
-            return
+            return []
         article_ids, article_probs = zip(*article_ids_and_probs)
         articles = pd.DataFrame(self.corpus.get_articles(article_ids))
         articles['topic_score'] = article_probs
         for article_id in article_ids:
-            self.corpus.print_article(article_id)
+            self.corpus.print_article(article_id, max_article_length)
         return articles
 
     def show_article_topics(self, article_id, min_prob=0.1, max_article_length=500):
-        self.corpus.print_article(article_id)
+        self.corpus.print_article(article_id, max_article_length)
         topic_ids_and_probs = self.get_article_topics(article_id, min_prob)
         for topic_id, topic_prob in topic_ids_and_probs:
             print('Topic #%d (%.2f): %s' % (topic_id, topic_prob, self.model.print_topic(topic_id)))
