@@ -141,6 +141,11 @@ class HnLdaModel(object):
             self.corpus.print_article(article_id, max_article_length)
         return articles
 
+    def plot_topic_similarities(self, metric='jaccard'):
+        similarity_matrix = np.copy(self.get_similarity_matrix(metric))
+        np.fill_diagonal(similarity_matrix, 0)
+        return plt.matshow(similarity_matrix, cmap=plt.cm.binary)
+
     def show_article_topics(self, article_id, min_prob=0.1, max_article_length=500):
         self.corpus.print_article(article_id, max_article_length)
         topic_ids_and_probs = self.get_article_topics(article_id, min_prob)
