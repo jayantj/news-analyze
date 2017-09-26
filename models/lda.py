@@ -113,14 +113,19 @@ class HnLdaModel(object):
         sorted_idxs = sorted(trimmed_idxs, key=lambda idx: -topic_probs[idx])
         return [(idx, topic_probs[idx]) for idx in sorted_idxs]
 
-    def topic_trend_plot(self, topic_ids, min_prob=0.1, window_size=30):
-        article_ids, article_probs = zip(*self.get_topic_articles(topic_ids, min_prob))
+    def get_topic_trend(self, topic_id, min_prob=0.1, window_size=30):
+        article_ids, article_probs = zip(*self.get_topic_articles(topic_id, min_prob))
         articles = self.corpus.get_articles(article_ids)
         articles = articles.assign(topic_score=article_probs)
         topic_score_over_time = articles.groupby('created_date')['topic_score'].sum()
         topic_score_over_time = topic_score_over_time.rolling(window=window_size, center=True).mean()
-        plot_data = [go.Scatter(x=topic_score_over_time.index, y=topic_score_over_time.values)]
-        self.print_topics(topic_ids)
+        return topic_score_over_time
+        # return (topic_score_over_time.index, topic_score_over_time.values)
+
+    def topic_trend_plot(self, topic_id, min_prob=0.1, window_size=30):
+        topic_trend = self.get_topic_trend(topic_id, min_prob, window_size)
+        plot_data = [go.Scatter(x=topic_trend.index, y=topic_trend.values, name='Topic #%d' % topic_id)]
+        self.print_topics(topic_id)
         return plot_data
 
     def show_topic_articles(self, topic_id, min_prob=0.1, max_article_length=500):
