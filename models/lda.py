@@ -66,9 +66,13 @@ class HnLdaModel(object):
                     id2word=self.corpus.dictionary)
                 )
         self.save_article_topics()
+        self.save_topic_words()
 
     def infer_topics(self, article_bows):
         return [self.model.__getitem__(article_bow, eps=0.0) for article_bow in article_bows]
+
+    def save_topic_words(self):
+        self.topic_word_matrix = self.model.state.get_lambda()
 
     def save_article_topics(self):
         article_stream = self.corpus.stream_bow(stream_ids=True)
@@ -218,6 +222,9 @@ class HnLdaMalletModel(HnLdaModel):
     def infer_topics(self, article_bows):
         return self.model[article_bows]
 
+    def save_topic_words(self):
+        self.topic_word_matrix = self.model.wordtopics / self.model.wordtopics.sum(axis=1)[:, np.newaxis]
+
     def train(self):
         self.model = ldamallet.LdaMallet(
             self.mallet_path,
@@ -228,3 +235,4 @@ class HnLdaMalletModel(HnLdaModel):
                 workers=self.workers)
             )
         self.save_article_topics()
+        self.save_topic_words()
