@@ -98,13 +98,42 @@ class HnLdaModel(object):
         self.init_topic_similarity_matrices()
         self.init_topic_scores()
 
-    def get_topic_articles(self, topic_ids, min_prob=0.1):
+    def print_topic_row(self, topic_ids, top_n=10):
+        topic_labels = ["Topic #%d" % topic_id for topic_id in topic_ids]
+        row_format = "{:^15}" * (len(topic_ids))
+        header = row_format.format(*topic_labels)
+        underscores = row_format.format(*['----------'] * len(topic_ids))
+        lines = [header, underscores]
+        def get_topic_words(topic_id, model, top_n):
+            return [w for w, _ in model.show_topic(topic_id, top_n)]
+
+        topic_words = {topic_id: get_topic_words(topic_id, self.model, top_n) for topic_id in topic_ids}
+        for i in range(top_n):
+            row_words = [topic_words[topic_id][i] for topic_id in topic_ids]
+            lines.append(row_format.format(*row_words))
+        lines.append('\n')
+        for line in lines:
+            print(line)
+
+    def print_topics_table(self, topic_ids=[], topics_per_row=6, top_n=10):
+        if not topic_ids:
+            topic_ids = np.argsort(-self.topic_scores)
+        for i in range(0, len(topic_ids), topics_per_row):
+            self.print_topic_row(topic_ids[i:i+topics_per_row], top_n)
+
+    def get_topic_articles(self, topic_ids, min_prob=0.1, negative_ids=[]):
         if not isinstance(topic_ids, (list, tuple)):
             topic_ids = [topic_ids]
         article_probs = self.article_topic_matrix[:, topic_ids].sum(axis=1) / len(topic_ids)
-        trimmed_idxs = np.where(article_probs > min_prob)[0]
-        sorted_idxs = sorted(trimmed_idxs, key=lambda idx: -article_probs[idx])
-        return [(self.row_article_id_mapping[idx], article_probs[idx]) for idx in sorted_idxs]
+        trimmed_indices = np.where(article_probs > min_prob)[0]
+        sorted_indices = sorted(trimmed_indices, key=lambda index: -article_probs[index])
+        import pdb
+        # pdb.set_trace()
+        return [(self.row_article_id_mapping[index], article_probs[index]) for index in sorted_indices]
+
+    def show_topic_label(self, topic_id, num_words=10):
+        top_words = [word[0] for word in self.model.show_topic(topic_id, num_words)]
+        return "%s" % (', '.join(top_words))
 
     def get_article_topics(self, article_id, min_prob=0.1):
         article_row = self.article_id_row_mapping[article_id]
@@ -128,11 +157,13 @@ class HnLdaModel(object):
         self.print_topics(topic_id)
         return plot_data
 
-    def show_topic_articles(self, topic_id, min_prob=0.1, max_article_length=500):
-        self.print_topics(topic_id)
-        article_ids_and_probs = self.get_topic_articles(topic_id, min_prob)
+    def show_topic_articles(self, topic_ids, negative_ids=[], min_prob=0.1, max_article_length=500):
+        if not isinstance(topic_ids, (list, tuple)):
+            topic_ids = [topic_ids]
+        self.print_topics_table(topic_ids)
+        article_ids_and_probs = self.get_topic_articles(topic_ids, min_prob, negative_ids)
         if not article_ids_and_probs:
-            print('No articles found for topic %d' % topic_id)
+            print('No articles found for topic %d' % topic_ids)
             return []
         article_ids, article_probs = zip(*article_ids_and_probs)
         articles = pd.DataFrame(self.corpus.get_articles(article_ids))
@@ -149,8 +180,10 @@ class HnLdaModel(object):
     def show_article_topics(self, article_id, min_prob=0.1, max_article_length=500):
         self.corpus.print_article(article_id, max_article_length)
         topic_ids_and_probs = self.get_article_topics(article_id, min_prob)
-        for topic_id, topic_prob in topic_ids_and_probs:
-            print('Topic #%d (%.2f): %s' % (topic_id, topic_prob, self.model.print_topic(topic_id)))
+        topic_ids = [topic_id for topic_id, prob in topic_ids_and_probs]
+        self.print_topics_table(topic_ids)
+        # for topic_id, topic_prob in topic_ids_and_probs:
+            # print('Topic #%d (%.2f): %s' % (topic_id, topic_prob, self.model.print_topic(topic_id)))
 
     def init_topic_scores(self, min_threshold=0.1):
         topic_vectors_mask = self.article_topic_matrix < min_threshold
@@ -196,10 +229,11 @@ class HnLdaModel(object):
 
     def show_similar_topics(self, topic_id, top_n=10, min_similarity=0.0, metric='jaccard'):
         similar_topics, similarities = self.get_similar_topics(topic_id, top_n, min_similarity, metric)
-        self.print_topics(topic_id)
-        print('\nTopics similar to topic #%d---------------------------' % topic_id)
-        for similar_topic_id, similarity in zip(similar_topics, similarities):
-            print('Topic #%d (%.2f): %s\n' % (similar_topic_id, similarity, self.model.print_topic(similar_topic_id)))
+        self.print_topics_table([topic_id])
+        print('Topics similar to topic #%d\n---------------------------\n' % topic_id)
+        self.print_topics_table(list(similar_topics))
+        # for similar_topic_id, similarity in zip(similar_topics, similarities):
+            # print('Topic #%d (%.2f): %s\n' % (similar_topic_id, similarity, self.model.print_topic(similar_topic_id)))
 
     def get_most_similar_topic_pairs(self, top_n=20, metric='jaccard'):
         topic_similarities = np.copy(self.get_similarity_matrix(metric))
