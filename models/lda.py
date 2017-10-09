@@ -12,6 +12,7 @@ from gensim.models.wrappers import ldamallet
 from gensim.corpora import Dictionary
 from itertools import islice
 from sklearn.metrics.pairwise import cosine_similarity
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import plotly.plotly as py
@@ -172,7 +173,7 @@ class HnLdaModel(object):
             self.corpus.print_article(article_id, max_article_length)
         return articles
 
-    def plot_topic_similarities(self, metric='jaccard'):
+    def plot_topic_similarities(self, metric='word_doc_sim'):
         similarity_matrix = np.copy(self.get_similarity_matrix(metric))
         np.fill_diagonal(similarity_matrix, 0)
         return plt.matshow(similarity_matrix, cmap=plt.cm.binary)
@@ -206,15 +207,30 @@ class HnLdaModel(object):
         topic_jaccard_similarities = topic_vectors_intersection / topic_vectors_union
         self.topic_jaccard_similarities = topic_jaccard_similarities
 
+        # doc-word based similarity
+        word_similarities = np.copy(self.topic_word_similarities)
+        doc_similarities = np.copy(self.topic_doc_similarities)
+        np.fill_diagonal(word_similarities, 0)  # Remove topic similarities with itself
+        np.fill_diagonal(doc_similarities, 0)  # Remove topic similarities with itself
+        scale_ratio = np.max(doc_similarities) / np.max(word_similarities)
+        word_similarities = scale_ratio * word_similarities
+        np.fill_diagonal(word_similarities, 1)
+        np.fill_diagonal(doc_similarities, 1)
+        self.topic_word_doc_similarities = (word_similarities + doc_similarities) / 2.0
+
     def get_similarity_matrix(self, metric):
+        if metric == 'word_doc_sim':
+            return self.topic_word_doc_similarities
         if metric == 'word_sim':
             return self.topic_word_similarities
         elif metric == 'doc_sim':
             return self.topic_doc_similarities
-        else:
+        elif metric == 'jaccard':
             return self.topic_jaccard_similarities
+        else:
+            raise ValueError('Invalid similarity metric')
 
-    def get_similar_topics(self, topic_id, top_n=10, min_similarity=0.0, metric='jaccard'):
+    def get_similar_topics(self, topic_id, top_n=10, min_similarity=0.0, metric='word_doc_sim'):
         topic_similarities = self.get_similarity_matrix(metric)
         similar_topics = np.argsort(-topic_similarities[topic_id, :])[1:1+top_n]  # Remove index for similarity with self
         return similar_topics, topic_similarities[topic_id][similar_topics]
@@ -227,7 +243,7 @@ class HnLdaModel(object):
         for topic_id in topic_ids:
             print('Topic #%d: %s\n' % (topic_id, self.model.print_topic(topic_id)))
 
-    def show_similar_topics(self, topic_id, top_n=10, min_similarity=0.0, metric='jaccard'):
+    def show_similar_topics(self, topic_id, top_n=10, min_similarity=0.0, metric='word_doc_sim'):
         similar_topics, similarities = self.get_similar_topics(topic_id, top_n, min_similarity, metric)
         self.print_topics_table([topic_id])
         print('Topics similar to topic #%d\n---------------------------\n' % topic_id)
@@ -235,7 +251,7 @@ class HnLdaModel(object):
         # for similar_topic_id, similarity in zip(similar_topics, similarities):
             # print('Topic #%d (%.2f): %s\n' % (similar_topic_id, similarity, self.model.print_topic(similar_topic_id)))
 
-    def get_most_similar_topic_pairs(self, top_n=20, metric='jaccard'):
+    def get_most_similar_topic_pairs(self, top_n=20, metric='word_doc_sim'):
         topic_similarities = np.copy(self.get_similarity_matrix(metric))
         np.fill_diagonal(topic_similarities, 0)  # Remove topic similarities with itself
         num_topics = topic_similarities.shape[0]
@@ -252,7 +268,7 @@ class HnLdaModel(object):
             topic_scores.append(topic_similarities[idx])
         return topic_pairs, topic_scores
 
-    def show_most_similar_topic_pairs(self, top_n=20, metric='jaccard'):
+    def show_most_similar_topic_pairs(self, top_n=20, metric='word_doc_sim'):
         topic_pairs, topic_scores = self.get_most_similar_topic_pairs(top_n, metric)
         for topic_pair, topic_score in zip(topic_pairs, topic_scores):
             print(topic_score)
