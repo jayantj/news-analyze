@@ -1,7 +1,8 @@
-news-analyze – Analyze topics and trends in news corpuses with Python.
-======================================================================
+news-analyze – Analyze topics and trends in news
+=================================================
 
-Documentation and usage examples are work in progress.
+Documentation, usage examples and certain features are work in progress.
+Initial [demo here](http://nbviewer.jupyter.org/github/jayantj/news-analyze/blob/master/notebooks/Analyze%20HN%20using%20NLP!.ipynb).
 
 Features
 --------
