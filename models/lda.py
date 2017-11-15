@@ -99,12 +99,17 @@ class HnLdaModel(object):
         self.init_topic_similarity_matrices()
         self.init_topic_scores()
 
-    def print_topic_row(self, topic_ids, top_n=10):
+    def print_topic_row(self, topic_ids, topic_scores=[], top_n=10):
         topic_labels = ["Topic #%d" % topic_id for topic_id in topic_ids]
         row_format = "{:^15}" * (len(topic_ids))
-        header = row_format.format(*topic_labels)
+        topics = row_format.format(*topic_labels)
         underscores = row_format.format(*['----------'] * len(topic_ids))
-        lines = [header, underscores]
+        if topic_scores:
+            score_labels = ["Score (%.2f)" % topic_score for topic_score in topic_scores]
+            scores = row_format.format(*score_labels)
+            lines = [topics, scores, underscores]
+        else:
+            lines = [topics, underscores]
         def get_topic_words(topic_id, model, top_n):
             return [w for w, _ in model.show_topic(topic_id, top_n)]
 
@@ -116,11 +121,15 @@ class HnLdaModel(object):
         for line in lines:
             print(line)
 
-    def print_topics_table(self, topic_ids=[], topics_per_row=6, top_n=10):
+    def print_topics_table(self, topic_ids=[], topic_scores=[], topics_per_row=6, top_n=10):
         if not topic_ids:
             topic_ids = np.argsort(-self.topic_scores)
+        assert not topic_scores or len(topic_scores) == len(topic_ids)
         for i in range(0, len(topic_ids), topics_per_row):
-            self.print_topic_row(topic_ids[i:i+topics_per_row], top_n)
+            if topic_scores:
+                self.print_topic_row(topic_ids[i:i+topics_per_row], topic_scores[i:i+topics_per_row], top_n=top_n)
+            else:
+                self.print_topic_row(topic_ids[i:i+topics_per_row], top_n=top_n)
 
     def get_topic_articles(self, topic_ids, min_prob=0.1, negative_ids=[]):
         if not isinstance(topic_ids, (list, tuple)):
@@ -181,8 +190,8 @@ class HnLdaModel(object):
     def show_article_topics(self, article_id, min_prob=0.1, max_article_length=500):
         self.corpus.print_article(article_id, max_article_length)
         topic_ids_and_probs = self.get_article_topics(article_id, min_prob)
-        topic_ids = [topic_id for topic_id, prob in topic_ids_and_probs]
-        self.print_topics_table(topic_ids)
+        topic_ids, topic_probs = zip(*topic_ids_and_probs)
+        self.print_topics_table(topic_ids, topic_scores=topic_probs)
         # for topic_id, topic_prob in topic_ids_and_probs:
             # print('Topic #%d (%.2f): %s' % (topic_id, topic_prob, self.model.print_topic(topic_id)))
 
@@ -247,7 +256,7 @@ class HnLdaModel(object):
         similar_topics, similarities = self.get_similar_topics(topic_id, top_n, min_similarity, metric)
         self.print_topics_table([topic_id])
         print('Topics similar to topic #%d\n---------------------------\n' % topic_id)
-        self.print_topics_table(list(similar_topics))
+        self.print_topics_table(list(similar_topics), list(similarities))
         # for similar_topic_id, similarity in zip(similar_topics, similarities):
             # print('Topic #%d (%.2f): %s\n' % (similar_topic_id, similarity, self.model.print_topic(similar_topic_id)))
 
