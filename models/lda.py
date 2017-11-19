@@ -29,6 +29,9 @@ logger = logging.getLogger(__name__)
 
 class HnLdaModel(object):
 
+    STANDALONE_LABEL = 'Stand-alone'
+    COMMON_LABEL = 'Common'
+
     def __init__(self, corpus, workers=1, **model_params):
         self.corpus = corpus
         self.model = None
@@ -348,11 +351,13 @@ class HnLdaModel(object):
         return matrix
 
     def cluster_topics(self, metric='word_doc_sim', n_clusters=15, exclude_common=False, exclude_standalone=False, threshold_percentile=None):
-        exclude_topics = set()
+        common_topics = set()
+        standalone_topics = set()
         if exclude_common:
-            exclude_topics |= set(self.get_common_topics(metric))
+            common_topics |= set(self.get_common_topics(metric))
         if exclude_standalone:
-            exclude_topics |= set(self.get_standalone_topics(metric))
+            standalone_topics |= set(self.get_standalone_topics(metric))
+        exclude_topics = common_topics | standalone_topics
         selected_topics = np.array([topic_id for topic_id in range(self.model.num_topics) if topic_id not in exclude_topics])
         topic_index_mapping = {topic_id:i for i, topic_id in enumerate(selected_topics)}
 
@@ -362,10 +367,17 @@ class HnLdaModel(object):
 
         cluster_model = SpectralClustering(affinity='precomputed', n_clusters=n_clusters)
         original_labels = cluster_model.fit_predict(topic_similarities)
-        labels = [
-            original_labels[topic_index_mapping[topic_id]] if topic_id in topic_index_mapping else -1
-            for topic_id in range(self.model.num_topics)
-        ]
+
+        labels = []
+        for topic_id in range(self.model.num_topics):
+            if topic_id in topic_index_mapping:
+                labels.append(original_labels[topic_index_mapping[topic_id]])
+            elif topic_id in common_topics:
+                labels.append(self.COMMON_LABEL)
+            elif topic_id in standalone_topics:
+                labels.append(self.STANDALONE_LABEL)
+            else:
+                raise AssertionError('Topic #%d missing from clustered as well as excluded topics' % topic_id)
         self.topic_cluster_mapping = labels
 
         cluster_topic_mapping = defaultdict(list)
@@ -400,7 +412,10 @@ class HnLdaModel(object):
 
     def print_topic_clusters(self):
         for cluster_label, topic_ids in self.cluster_topic_mapping.items():
-            print('Cluster %d----------------------------------\n' % cluster_label)
+            if cluster_label in (self.STANDALONE_LABEL, self.COMMON_LABEL):
+                print('%s topics----------------------------------\n' % cluster_label)
+            else:
+                print('Cluster %d----------------------------------\n' % cluster_label)
             self.print_topics_table(topic_ids)
             print('\n')
 
