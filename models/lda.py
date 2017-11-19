@@ -183,9 +183,9 @@ class HnLdaModel(object):
         # return (topic_score_over_time.index, topic_score_over_time.values)
 
     def topic_trend_plot(self, topic_id, min_prob=0.1, window_size=30):
+        self.print_topics_table([topic_id])
         topic_trend = self.get_topic_trend(topic_id, min_prob, window_size)
         plot_data = [go.Scatter(x=topic_trend.index, y=topic_trend.values, name='Topic #%d' % topic_id)]
-        self.print_topics(topic_id)
         return go.Figure(data=plot_data)
 
     def show_topic_articles(self, topic_ids, negative_ids=[], min_prob=0.1, max_article_length=500, top_n=None):
