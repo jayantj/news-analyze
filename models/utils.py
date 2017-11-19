@@ -248,7 +248,8 @@ class HnCorpus(object):
         print('Article #%d - %s\n%s' % (article_id, url, title))
         if score:
             print('Topic score: %.2f\n' % score)
-        print(self.get_article_text(article_id, max_length=max_article_length))
+        article_text = self.get_article_text(article_id, max_length=max_article_length)
+        print('Article text:\n %s (...)(trimmed)' % article_text)
         print('\n')
 
 
