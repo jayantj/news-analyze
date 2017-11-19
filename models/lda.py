@@ -345,7 +345,7 @@ class HnLdaModel(object):
             matrix[indices] = 0
         return matrix
 
-    def cluster_topics(self, metric='word_doc_sim', exclude_common=False, exclude_standalone=False, threshold_percentile=None):
+    def cluster_topics(self, metric='word_doc_sim', n_clusters=15, exclude_common=False, exclude_standalone=False, threshold_percentile=None):
         exclude_topics = set()
         if exclude_common:
             exclude_topics |= set(self.get_common_topics(metric))
@@ -358,7 +358,7 @@ class HnLdaModel(object):
         topic_sims = topic_sims[selected_topics[:, None], selected_topics]
         topic_sims = self.threshold_matrix(topic_sims, threshold_percentile)
 
-        cluster_model = SpectralClustering(affinity='precomputed', n_clusters=15)
+        cluster_model = SpectralClustering(affinity='precomputed', n_clusters=n_clusters)
         original_labels = cluster_model.fit_predict(topic_sims)
         labels = [
             original_labels[topic_index_mapping[topic_id]] if topic_id in topic_index_mapping else -1
