@@ -37,6 +37,8 @@ class HnLdaModel(object):
         self.article_topic_matrix = None
         self.row_article_id_mapping = {}
         self.article_id_row_mapping = {}
+        self.topic_cluster_mapping = []
+        self.cluster_topic_mapping = {}
 
     def save(self, filename):
         with open(filename, 'wb') as f:
@@ -354,24 +356,30 @@ class HnLdaModel(object):
         selected_topics = np.array([topic_id for topic_id in range(self.model.num_topics) if topic_id not in exclude_topics])
         topic_index_mapping = {topic_id:i for i, topic_id in enumerate(selected_topics)}
 
-        topic_sims = np.copy(self.get_similarity_matrix(metric))
-        topic_sims = topic_sims[selected_topics[:, None], selected_topics]
-        topic_sims = self.threshold_matrix(topic_sims, threshold_percentile)
+        topic_similarities = np.copy(self.get_similarity_matrix(metric))
+        topic_similarities = topic_similarities[selected_topics[:, None], selected_topics]
+        topic_similarities = self.threshold_matrix(topic_similarities, threshold_percentile)
 
         cluster_model = SpectralClustering(affinity='precomputed', n_clusters=n_clusters)
-        original_labels = cluster_model.fit_predict(topic_sims)
+        original_labels = cluster_model.fit_predict(topic_similarities)
         labels = [
             original_labels[topic_index_mapping[topic_id]] if topic_id in topic_index_mapping else -1
             for topic_id in range(self.model.num_topics)
         ]
+        self.topic_cluster_mapping = labels
 
-        topic_dists = 1 - topic_sims
-        original_scores = silhouette_samples(topic_dists, original_labels, metric='precomputed')
-        topic_scores = [
+        cluster_topic_mapping = defaultdict(list)
+        for topic_id, cluster_label in enumerate(labels):
+            cluster_topic_mapping[cluster_label].append(topic_id)
+        self.cluster_topic_mapping = cluster_topic_mapping
+
+        topic_distances = 1 - topic_similarities
+        original_scores = silhouette_samples(topic_distances, original_labels, metric='precomputed')
+        topic_silhouette_scores = [
             original_scores[topic_index_mapping[topic_id]] if topic_id in topic_index_mapping else np.nan
             for topic_id in range(self.model.num_topics)
         ]
-        return labels, topic_scores
+        self.topic_silhouette_scores = topic_silhouette_scores
 
     def cluster_scores(self, cluster_labels, topic_scores):
         cluster_topic_mapping = self.cluster_topic_mapping(cluster_labels)
@@ -390,24 +398,16 @@ class HnLdaModel(object):
         pdb.set_trace()
         return scores
 
-    def cluster_topic_mapping(self, cluster_labels):
-        mapping = defaultdict(list)
-        for topic_id, cluster_label in enumerate(cluster_labels):
-            mapping[cluster_label].append(topic_id)
-        return mapping
-
-    def print_topic_clusters(self, cluster_labels):
-        cluster_topic_mapping = self.cluster_topic_mapping(cluster_labels)
-        for cluster_label, topic_ids in cluster_topic_mapping.items():
+    def print_topic_clusters(self):
+        for cluster_label, topic_ids in self.cluster_topic_mapping.items():
             print('Cluster %d----------------------------------' % cluster_label)
             for topic_id in topic_ids:
                 print('Topic #%d: %s' % (topic_id, self.model.print_topic(topic_id)))
             print('\n')
 
-    def plot_clustered_topic_similarities(self, cluster_labels, metric='word_doc_sim', threshold_percentile=None):
-        cluster_topic_mapping = self.cluster_topic_mapping(cluster_labels)
+    def plot_clustered_topic_similarities(self, metric='word_doc_sim', threshold_percentile=None):
         topic_ids_ordered = []
-        for cluster_label, topic_ids in cluster_topic_mapping.items():
+        for cluster_label, topic_ids in self.cluster_topic_mapping.items():
             topic_ids_ordered += topic_ids
         topic_similarities = self.get_similarity_matrix(metric)
         similarity_matrix = []
