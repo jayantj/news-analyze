@@ -199,7 +199,7 @@ class HnLdaModel(object):
         for article_id, article_score in article_ids_and_probs:
             self.corpus.print_article(article_id, max_article_length, score=article_score)
 
-    def plot_topic_similarities(self, metric='word_doc_sim', threshold_percentile=None):
+    def plot_topic_similarities(self, metric='word_doc_sim', threshold_percentile=85):
         similarity_matrix = self.get_similarity_matrix(metric, zero_self_similarity=True)
         np.fill_diagonal(similarity_matrix, 0)
         similarity_matrix = self.threshold_matrix(similarity_matrix, threshold_percentile)
@@ -318,7 +318,7 @@ class HnLdaModel(object):
             print(topic_score)
             self.print_topics(topic_pair)
 
-    def get_common_topics(self, metric='word_doc_sim', top_n=10, similar_to=0.2, threshold_percentile=90):
+    def get_common_topics(self, metric='word_doc_sim', top_n=10, similar_to=0.2, threshold_percentile=85):
         # Topics similar to lots of other topics
         # similarity_matrix = self.get_similarity_matrix(metric, zero_self_similarity=True)
         # topic_sim_medians = np.median(similarity_matrix, axis=1)
@@ -334,7 +334,7 @@ class HnLdaModel(object):
             return list(common_topics)
         return list(common_topics[:top_n])
 
-    def get_standalone_topics(self, metric='word_doc_sim', top_n=None, threshold_percentile=90):
+    def get_standalone_topics(self, metric='word_doc_sim', top_n=None, threshold_percentile=85):
         # Topics similar to basically no topics - standalone topics
         similarity_matrix = self.get_similarity_matrix(metric, zero_self_similarity=True)
         threshold_score = np.percentile(similarity_matrix.reshape(-1), threshold_percentile)
@@ -352,7 +352,7 @@ class HnLdaModel(object):
             matrix[indices] = 0
         return matrix
 
-    def cluster_topics(self, metric='word_doc_sim', n_clusters=15, exclude_common=False, exclude_standalone=False, threshold_percentile=None):
+    def cluster_topics(self, metric='word_doc_sim', n_clusters=15, exclude_common=False, exclude_standalone=False, threshold_percentile=85):
         common_topics = set()
         standalone_topics = set()
         if exclude_common:
