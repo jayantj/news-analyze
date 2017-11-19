@@ -400,9 +400,8 @@ class HnLdaModel(object):
 
     def print_topic_clusters(self):
         for cluster_label, topic_ids in self.cluster_topic_mapping.items():
-            print('Cluster %d----------------------------------' % cluster_label)
-            for topic_id in topic_ids:
-                print('Topic #%d: %s' % (topic_id, self.model.print_topic(topic_id)))
+            print('Cluster %d----------------------------------\n' % cluster_label)
+            self.print_topics_table(topic_ids)
             print('\n')
 
     def plot_clustered_topic_similarities(self, metric='word_doc_sim', threshold_percentile=None):
