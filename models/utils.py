@@ -236,12 +236,14 @@ class HnCorpus(object):
         plot_data = [go.Scatter(x=created_date_counts.index, y=created_date_counts.values)]
         return py.iplot(plot_data)
 
-    def print_article(self, article_id, max_article_length=500):
+    def print_article(self, article_id, max_article_length=500, score=None):
         article_metadata = self.get_articles([article_id]).iloc[0]
         title = article_metadata['title']
         url = article_metadata['url']
         print('---------------------------------------------------------------------')
-        print('Article #%d - %s\n%s\n' % (article_id, url, title))
+        print('Article #%d - %s\n%s' % (article_id, url, title))
+        if score:
+            print('Topic score: %.2f\n' % score)
         print(self.get_article_text(article_id, max_length=max_article_length))
         print('\n')
 

@@ -175,12 +175,8 @@ class HnLdaModel(object):
         if not article_ids_and_probs:
             print('No articles found for topic %d' % topic_ids)
             return []
-        article_ids, article_probs = zip(*article_ids_and_probs)
-        articles = pd.DataFrame(self.corpus.get_articles(article_ids))
-        articles['topic_score'] = article_probs
-        for article_id in article_ids:
-            self.corpus.print_article(article_id, max_article_length)
-        return articles
+        for article_id, article_score in article_ids_and_probs:
+            self.corpus.print_article(article_id, max_article_length, score=article_score)
 
     def plot_topic_similarities(self, metric='word_doc_sim'):
         similarity_matrix = np.copy(self.get_similarity_matrix(metric))
