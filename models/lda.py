@@ -13,6 +13,7 @@ from gensim.corpora import Dictionary
 from itertools import islice
 from sklearn.metrics.pairwise import cosine_similarity
 import matplotlib.pyplot as plt
+from newspaper import Article
 import numpy as np
 import pandas as pd
 import plotly.plotly as py
@@ -152,6 +153,17 @@ class HnLdaModel(object):
         sorted_idxs = sorted(trimmed_idxs, key=lambda idx: -topic_probs[idx])
         return [(idx, topic_probs[idx]) for idx in sorted_idxs]
 
+    def get_article_topics_from_url(self, article_url, min_prob=0.1):
+        article = self.article_from_url(article_url)
+        return self.get_article_topics_from_text(article.text, min_prob)
+
+    def get_article_topics_from_text(self, article_text, min_prob=0.1):
+        article_tokens = self.corpus.text_to_tokens(article_text)
+        article_bow = self.corpus.dictionary.doc2bow(article_tokens)
+        article_topics = self.model[article_bow]
+        article_topics = [(topic_id, score) for topic_id, score in article_topics if score > min_prob]
+        return sorted(article_topics, key=lambda x: -x[1])
+
     def get_topic_trend(self, topic_id, min_prob=0.1, window_size=30):
         article_ids, article_probs = zip(*self.get_topic_articles(topic_id, min_prob))
         articles = self.corpus.get_articles(article_ids)
@@ -188,8 +200,25 @@ class HnLdaModel(object):
         topic_ids_and_probs = self.get_article_topics(article_id, min_prob)
         topic_ids, topic_probs = zip(*topic_ids_and_probs)
         self.print_topics_table(topic_ids, topic_scores=topic_probs)
-        # for topic_id, topic_prob in topic_ids_and_probs:
-            # print('Topic #%d (%.2f): %s' % (topic_id, topic_prob, self.model.print_topic(topic_id)))
+
+    def show_article_topics_from_text(self, article_text, min_prob=0.1, max_article_length=500):
+        print('Article text:\n %s (...)(trimmed)' % article_text[:max_article_length])
+        print('\nMost relevant topics:\n')
+        topic_ids_and_probs = self.get_article_topics_from_text(article_text, min_prob)
+        topic_ids, topic_probs = zip(*topic_ids_and_probs)
+        self.print_topics_table(topic_ids, topic_scores=topic_probs)
+
+    def show_article_topics_from_url(self, article_url, min_prob=0.1, max_article_length=500):
+        print('Article: %s' % article_url)
+        article = self.article_from_url(article_url)
+        self.show_article_topics_from_text(article.text, min_prob, max_article_length)
+
+    @staticmethod
+    def article_from_url(article_url):
+        article = Article(article_url)
+        article.download()
+        article.parse()
+        return article
 
     def init_topic_scores(self, min_threshold=0.1):
         topic_vectors_mask = self.article_topic_matrix < min_threshold

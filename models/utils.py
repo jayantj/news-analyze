@@ -185,9 +185,13 @@ class HnCorpus(object):
 
     def article_tokens_from_text(self, max_count=None):
         for article_id, article_text in self.stream_articles_text(max_count):
-            doc = nlp(article_text) 
-            article_tokens = [token.lemma_.lower() for token in doc if token.is_alpha]
-            yield article_id, article_tokens
+            yield article_id, self.text_to_tokens(article_text)
+
+    @staticmethod
+    def text_to_tokens(article_text):
+        doc = nlp(article_text)
+        article_tokens = [token.lemma_.lower() for token in doc if token.is_alpha]
+        return article_tokens
 
     def article_tokens_from_disk(self, max_count=None):
         self.init_cache()
