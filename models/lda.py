@@ -179,7 +179,7 @@ class HnLdaModel(object):
         topic_trend = self.get_topic_trend(topic_id, min_prob, window_size)
         plot_data = [go.Scatter(x=topic_trend.index, y=topic_trend.values, name='Topic #%d' % topic_id)]
         self.print_topics(topic_id)
-        return plot_data
+        return go.Figure(data=plot_data)
 
     def show_topic_articles(self, topic_ids, negative_ids=[], min_prob=0.1, max_article_length=500, top_n=None):
         if not isinstance(topic_ids, (list, tuple)):
