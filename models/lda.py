@@ -424,9 +424,12 @@ class HnLdaModel(object):
             self.print_topics_table(topic_ids)
             print('\n')
 
-    def plot_clustered_topic_similarities(self, metric='word_doc_sim', threshold_percentile=None):
+    def plot_clustered_topic_similarities(self, metric='word_doc_sim', threshold_percentile=85):
         topic_ids_ordered = []
-        for cluster_label, topic_ids in self.cluster_topic_mapping.items():
+        cluster_scores = self.cluster_silhouette_scores
+        cluster_labels_by_score = sorted(cluster_scores.keys(), key=lambda l: -cluster_scores[l])
+        for cluster_label in cluster_labels_by_score:
+            topic_ids = self.cluster_topic_mapping[cluster_label]
             topic_ids_ordered += topic_ids
         topic_similarities = self.get_similarity_matrix(metric)
         similarity_matrix = []
@@ -439,6 +442,40 @@ class HnLdaModel(object):
         similarity_matrix = self.threshold_matrix(similarity_matrix, threshold_percentile)
         return plt.matshow(similarity_matrix, cmap=plt.cm.binary)
 
+    def get_topic_article_scores(self, topic_id, min_threshold=0.05):
+        topic_vector = self.article_topic_matrix[:, topic_id]
+        topic_vector = topic_vector[np.where(topic_vector > min_threshold)]
+        return topic_vector
+
+    def plot_topic_article_distribution(self, topic_ids, min_threshold=0.05):
+        if not isinstance(topic_ids, (list, tuple)):
+            topic_ids = [topic_ids]
+        title = "Topics %s" % ", ".join(["#%d" % topic_id for topic_id in topic_ids])
+        layout = go.Layout(
+            title=title,
+            barmode='overlay',
+            xaxis=dict(
+                title='Topic Score'
+            ),
+            yaxis=dict(
+                title='Number of Articles'
+            ),
+        )
+        xbins = {
+            'start': 0,
+            'end': 1,
+            'size': 0.1
+        }
+        data = [
+            go.Histogram(
+                x=self.get_topic_article_scores(topic_id),
+                opacity=0.4,
+                name='Topic #%d' % topic_id,
+                xbins=xbins,
+            )
+            for topic_id in topic_ids
+        ]
+        return go.Figure(data=data, layout=layout)
 
 class HnLdaMalletModel(HnLdaModel):
     def __init__(self, mallet_path, corpus, workers=1, **model_params):
