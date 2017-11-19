@@ -18,6 +18,8 @@ import numpy as np
 import pandas as pd
 import plotly.plotly as py
 import plotly.graph_objs as go
+from sklearn.cluster import SpectralClustering
+from sklearn.metrics import silhouette_score, silhouette_samples
 
 from .utils import HnCorpus, parse_date
 
@@ -190,9 +192,10 @@ class HnLdaModel(object):
         for article_id, article_score in article_ids_and_probs:
             self.corpus.print_article(article_id, max_article_length, score=article_score)
 
-    def plot_topic_similarities(self, metric='word_doc_sim'):
-        similarity_matrix = np.copy(self.get_similarity_matrix(metric))
+    def plot_topic_similarities(self, metric='word_doc_sim', threshold_percentile=None):
+        similarity_matrix = self.get_similarity_matrix(metric, zero_self_similarity=True)
         np.fill_diagonal(similarity_matrix, 0)
+        similarity_matrix = self.threshold_matrix(similarity_matrix, threshold_percentile)
         return plt.matshow(similarity_matrix, cmap=plt.cm.binary)
 
     def show_article_topics(self, article_id, min_prob=0.1, max_article_length=500):
@@ -235,6 +238,7 @@ class HnLdaModel(object):
 
         # jaccard similarity
         topic_vectors = self.article_topic_matrix.T > jaccard_threshold
+        # TODO: don't use np.repeat; memory allocation
         topic_vectors_repeated = np.repeat(topic_vectors[:, :, np.newaxis], topic_vectors.shape[0], axis=2).swapaxes(0, 2)
         topic_vectors_intersection = np.logical_and(topic_vectors[:, :, np.newaxis], topic_vectors_repeated).sum(axis=1)
         topic_vectors_union = np.logical_or(topic_vectors[:, :, np.newaxis], topic_vectors_repeated).sum(axis=1)
@@ -242,27 +246,27 @@ class HnLdaModel(object):
         self.topic_jaccard_similarities = topic_jaccard_similarities
 
         # doc-word based similarity
-        word_similarities = np.copy(self.topic_word_similarities)
-        doc_similarities = np.copy(self.topic_doc_similarities)
-        np.fill_diagonal(word_similarities, 0)  # Remove topic similarities with itself
-        np.fill_diagonal(doc_similarities, 0)  # Remove topic similarities with itself
+        word_similarities = self.get_similarity_matrix('word_sim', zero_self_similarity=True)
+        doc_similarities = self.get_similarity_matrix('doc_sim', zero_self_similarity=True)
         scale_ratio = np.max(doc_similarities) / np.max(word_similarities)
         word_similarities = scale_ratio * word_similarities
-        np.fill_diagonal(word_similarities, 1)
-        np.fill_diagonal(doc_similarities, 1)
         self.topic_word_doc_similarities = (word_similarities + doc_similarities) / 2.0
 
-    def get_similarity_matrix(self, metric):
+    def get_similarity_matrix(self, metric, zero_self_similarity=False):
         if metric == 'word_doc_sim':
-            return self.topic_word_doc_similarities
-        if metric == 'word_sim':
-            return self.topic_word_similarities
+            similarity_matrix = self.topic_word_doc_similarities
+        elif metric == 'word_sim':
+            similarity_matrix = self.topic_word_similarities
         elif metric == 'doc_sim':
-            return self.topic_doc_similarities
+            similarity_matrix = self.topic_doc_similarities
         elif metric == 'jaccard':
-            return self.topic_jaccard_similarities
+            similarity_matrix = self.topic_jaccard_similarities
         else:
             raise ValueError('Invalid similarity metric')
+        if zero_self_similarity:
+            similarity_matrix = np.copy(similarity_matrix)
+            np.fill_diagonal(similarity_matrix, 0)
+        return similarity_matrix
 
     def get_similar_topics(self, topic_id, top_n=10, min_similarity=0.0, metric='word_doc_sim'):
         topic_similarities = self.get_similarity_matrix(metric)
@@ -286,8 +290,7 @@ class HnLdaModel(object):
             # print('Topic #%d (%.2f): %s\n' % (similar_topic_id, similarity, self.model.print_topic(similar_topic_id)))
 
     def get_most_similar_topic_pairs(self, top_n=20, metric='word_doc_sim'):
-        topic_similarities = np.copy(self.get_similarity_matrix(metric))
-        np.fill_diagonal(topic_similarities, 0)  # Remove topic similarities with itself
+        topic_similarities = self.get_similarity_matrix(metric, zero_self_similarity=True)
         num_topics = topic_similarities.shape[0]
         topic_similarities = topic_similarities.reshape(-1)
         indices = np.argsort(-topic_similarities)
@@ -307,6 +310,115 @@ class HnLdaModel(object):
         for topic_pair, topic_score in zip(topic_pairs, topic_scores):
             print(topic_score)
             self.print_topics(topic_pair)
+
+    def get_common_topics(self, metric='word_doc_sim', top_n=10, similar_to=0.2, threshold_percentile=90):
+        # Topics similar to lots of other topics
+        # similarity_matrix = self.get_similarity_matrix(metric, zero_self_similarity=True)
+        # topic_sim_medians = np.median(similarity_matrix, axis=1)
+        # common_topics = np.argsort(-topic_sim_medians)
+        similarity_matrix = self.get_similarity_matrix(metric, zero_self_similarity=True)
+        threshold_score = np.percentile(similarity_matrix.reshape(-1), threshold_percentile)
+        topic_scores = np.sum(similarity_matrix >= threshold_score, axis=1)
+        num_over_threshold = (topic_scores >= similar_to * self.model.num_topics).sum()
+        common_topics = np.argsort(-topic_scores)[:num_over_threshold]
+        if top_n:
+            return list(common_topics[:top_n])
+        else:
+            return list(common_topics)
+        return list(common_topics[:top_n])
+
+    def get_standalone_topics(self, metric='word_doc_sim', top_n=None, threshold_percentile=90):
+        # Topics similar to basically no topics - standalone topics
+        similarity_matrix = self.get_similarity_matrix(metric, zero_self_similarity=True)
+        threshold_score = np.percentile(similarity_matrix.reshape(-1), threshold_percentile)
+        standalone_topics = np.where(np.all(similarity_matrix <= threshold_score, axis=1))[0]
+        if top_n:
+            return list(standalone_topics[:top_n])
+        else:
+            return list(standalone_topics)
+
+    @staticmethod
+    def threshold_matrix(matrix, threshold_percentile):
+        if threshold_percentile:
+            threshold_score = np.percentile(matrix, threshold_percentile)
+            indices = np.where(matrix <= threshold_score)
+            matrix[indices] = 0
+        return matrix
+
+    def cluster_topics(self, metric='word_doc_sim', exclude_common=False, exclude_standalone=False, threshold_percentile=None):
+        exclude_topics = set()
+        if exclude_common:
+            exclude_topics |= set(self.get_common_topics(metric))
+        if exclude_standalone:
+            exclude_topics |= set(self.get_standalone_topics(metric))
+        selected_topics = np.array([topic_id for topic_id in range(self.model.num_topics) if topic_id not in exclude_topics])
+        topic_index_mapping = {topic_id:i for i, topic_id in enumerate(selected_topics)}
+
+        topic_sims = np.copy(self.get_similarity_matrix(metric))
+        topic_sims = topic_sims[selected_topics[:, None], selected_topics]
+        topic_sims = self.threshold_matrix(topic_sims, threshold_percentile)
+
+        cluster_model = SpectralClustering(affinity='precomputed', n_clusters=15)
+        original_labels = cluster_model.fit_predict(topic_sims)
+        labels = [
+            original_labels[topic_index_mapping[topic_id]] if topic_id in topic_index_mapping else -1
+            for topic_id in range(self.model.num_topics)
+        ]
+
+        topic_dists = 1 - topic_sims
+        original_scores = silhouette_samples(topic_dists, original_labels, metric='precomputed')
+        topic_scores = [
+            original_scores[topic_index_mapping[topic_id]] if topic_id in topic_index_mapping else np.nan
+            for topic_id in range(self.model.num_topics)
+        ]
+        return labels, topic_scores
+
+    def cluster_scores(self, cluster_labels, topic_scores):
+        cluster_topic_mapping = self.cluster_topic_mapping(cluster_labels)
+        scores = {}
+        for cluster_label, topic_ids in cluster_topic_mapping.items():
+            if cluster_label == -1:
+                continue
+            cluster_score = sum(
+                topic_scores[topic_id]
+                for topic_id in topic_ids
+                if not np.isnan(topic_scores[topic_id])
+            ) / len(topic_ids)
+            scores[cluster_label] = cluster_score
+        print(scores)
+        import pdb
+        pdb.set_trace()
+        return scores
+
+    def cluster_topic_mapping(self, cluster_labels):
+        mapping = defaultdict(list)
+        for topic_id, cluster_label in enumerate(cluster_labels):
+            mapping[cluster_label].append(topic_id)
+        return mapping
+
+    def print_topic_clusters(self, cluster_labels):
+        cluster_topic_mapping = self.cluster_topic_mapping(cluster_labels)
+        for cluster_label, topic_ids in cluster_topic_mapping.items():
+            print('Cluster %d----------------------------------' % cluster_label)
+            for topic_id in topic_ids:
+                print('Topic #%d: %s' % (topic_id, self.model.print_topic(topic_id)))
+            print('\n')
+
+    def plot_clustered_topic_similarities(self, cluster_labels, metric='word_doc_sim', threshold_percentile=None):
+        cluster_topic_mapping = self.cluster_topic_mapping(cluster_labels)
+        topic_ids_ordered = []
+        for cluster_label, topic_ids in cluster_topic_mapping.items():
+            topic_ids_ordered += topic_ids
+        topic_similarities = self.get_similarity_matrix(metric)
+        similarity_matrix = []
+        for topic_id_1 in topic_ids_ordered:
+            similarity_matrix.append([])
+            for topic_id_2 in topic_ids_ordered:
+                similarity_matrix[-1].append(topic_similarities[topic_id_1, topic_id_2])
+        similarity_matrix = np.array(similarity_matrix)
+        np.fill_diagonal(similarity_matrix, 0)
+        similarity_matrix = self.threshold_matrix(similarity_matrix, threshold_percentile)
+        return plt.matshow(similarity_matrix, cmap=plt.cm.binary)
 
 
 class HnLdaMalletModel(HnLdaModel):
