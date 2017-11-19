@@ -131,14 +131,14 @@ class HnLdaModel(object):
             else:
                 self.print_topic_row(topic_ids[i:i+topics_per_row], top_n=top_n)
 
-    def get_topic_articles(self, topic_ids, min_prob=0.1, negative_ids=[]):
+    def get_topic_articles(self, topic_ids, min_prob=0.1, negative_ids=[], top_n=None):
         if not isinstance(topic_ids, (list, tuple)):
             topic_ids = [topic_ids]
         article_probs = self.article_topic_matrix[:, topic_ids].sum(axis=1) / len(topic_ids)
         trimmed_indices = np.where(article_probs > min_prob)[0]
         sorted_indices = sorted(trimmed_indices, key=lambda index: -article_probs[index])
-        import pdb
-        # pdb.set_trace()
+        if top_n:
+            sorted_indices = sorted_indices[:top_n]
         return [(self.row_article_id_mapping[index], article_probs[index]) for index in sorted_indices]
 
     def show_topic_label(self, topic_id, num_words=10):
@@ -167,11 +167,11 @@ class HnLdaModel(object):
         self.print_topics(topic_id)
         return plot_data
 
-    def show_topic_articles(self, topic_ids, negative_ids=[], min_prob=0.1, max_article_length=500):
+    def show_topic_articles(self, topic_ids, negative_ids=[], min_prob=0.1, max_article_length=500, top_n=None):
         if not isinstance(topic_ids, (list, tuple)):
             topic_ids = [topic_ids]
         self.print_topics_table(topic_ids)
-        article_ids_and_probs = self.get_topic_articles(topic_ids, min_prob, negative_ids)
+        article_ids_and_probs = self.get_topic_articles(topic_ids, min_prob, negative_ids, top_n)
         if not article_ids_and_probs:
             print('No articles found for topic %d' % topic_ids)
             return []
