@@ -42,6 +42,8 @@ class HnLdaModel(object):
         self.article_id_row_mapping = {}
         self.topic_cluster_mapping = []
         self.cluster_topic_mapping = {}
+        self.topic_silhouette_scores = []
+        self.cluster_silhouette_scores = {}
 
     def save(self, filename):
         with open(filename, 'wb') as f:
@@ -393,25 +395,28 @@ class HnLdaModel(object):
         ]
         self.topic_silhouette_scores = topic_silhouette_scores
 
-    def cluster_scores(self, cluster_labels, topic_scores):
-        cluster_topic_mapping = self.cluster_topic_mapping(cluster_labels)
+        self.init_cluster_scores()
+
+    def init_cluster_scores(self):
         scores = {}
-        for cluster_label, topic_ids in cluster_topic_mapping.items():
-            if cluster_label == -1:
-                continue
-            cluster_score = sum(
-                topic_scores[topic_id]
-                for topic_id in topic_ids
-                if not np.isnan(topic_scores[topic_id])
-            ) / len(topic_ids)
+        topic_scores = self.topic_silhouette_scores
+        for cluster_label, topic_ids in self.cluster_topic_mapping.items():
+            if cluster_label in (self.STANDALONE_LABEL, self.COMMON_LABEL):
+                cluster_score = -np.inf
+            else:
+                cluster_score = sum(
+                    topic_scores[topic_id]
+                    for topic_id in topic_ids
+                    if not np.isnan(topic_scores[topic_id])
+                ) / len(topic_ids)
             scores[cluster_label] = cluster_score
-        print(scores)
-        import pdb
-        pdb.set_trace()
-        return scores
+        self.cluster_silhouette_scores = scores
 
     def print_topic_clusters(self):
-        for cluster_label, topic_ids in self.cluster_topic_mapping.items():
+        cluster_scores = self.cluster_silhouette_scores
+        cluster_labels_by_score = sorted(cluster_scores.keys(), key=lambda l: -cluster_scores[l])
+        for cluster_label in cluster_labels_by_score:
+            topic_ids = self.cluster_topic_mapping[cluster_label]
             if cluster_label in (self.STANDALONE_LABEL, self.COMMON_LABEL):
                 print('%s topics----------------------------------\n' % cluster_label)
             else:
