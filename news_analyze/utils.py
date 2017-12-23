@@ -139,7 +139,7 @@ class HnCorpus(object):
 
     def stream_articles_tokens(self, max_count=None):
         if self.token_cache_path:
-            article_stream = self.article_tokens_from_disk(max_count)
+            article_stream = self.article_tokens_from_cache(max_count)
         else:
             article_stream = self.article_tokens_from_text(max_count)
         if self.phrases is None:
@@ -148,8 +148,10 @@ class HnCorpus(object):
             return ((article_id, self.phrases[article_tokens]) for article_id, article_tokens in article_stream)
 
     def article_tokens_from_text(self, max_count=None):
-        for article_id, article_text in self.stream_articles_text(max_count):
+        for i, (article_id, article_text) in enumerate(self.stream_articles_text(max_count), start=1):
             yield article_id, self.text_to_tokens(article_text)
+            if max_count is not None and i >= max_count:
+                break
 
     @staticmethod
     def text_to_tokens(article_text):
@@ -157,7 +159,7 @@ class HnCorpus(object):
         article_tokens = [token.lemma_.lower() for token in doc if token.is_alpha]
         return article_tokens
 
-    def article_tokens_from_disk(self, max_count=None):
+    def article_tokens_from_cache(self, max_count=None):
         self.init_cache()
         for i, (article_id, article_tokens) in enumerate(self.token_cache, start=1):
             yield article_id, article_tokens
@@ -240,7 +242,7 @@ class HnDtmCorpus(HnCorpus):
             article_tokens = [token.lemma_.lower() for token in doc if token.is_alpha]
             yield article_id, article_tokens
 
-    def article_tokens_from_disk(self, max_count=None):
+    def article_tokens_from_cache(self, max_count=None):
         self.init_cache()
         for i, article_id in enumerate(self.stream_article_ids(), start=1):
             _, article_tokens = self.token_cache.get(article_id)
