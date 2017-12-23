@@ -1,14 +1,18 @@
-#! /usr/bin/env python
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+# Author: Jayant Jain <jayantjain1992@gmail.com>
 
-import argparse
-import logging
+"""
+Corpuses for fetching article data - text, bag-of-words, and metadata.
+
+"""
+
 import os
 import pickle
-import multiprocessing
 
-from gensim.corpora import Dictionary, MmCorpus
+from gensim.corpora import Dictionary
 from gensim.models import Phrases
-from dateutil import parser as date_parser
 import datetime
 import pandas as pd
 import plotly.plotly as py
@@ -16,9 +20,7 @@ import plotly.graph_objs as go
 import spacy
 
 
-logger = logging.getLogger(__name__)
 nlp = spacy.load('en')
-DATA_DIR = 'data/'
 
 
 def parse_month_year(timestamp):
