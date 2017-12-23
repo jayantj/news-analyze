@@ -87,8 +87,8 @@ class ArticleTokenCache(object):
 
 
 class HnCorpus(object):
-    def __init__(self, dirname, encoding='utf8', metadata={}, cache_path=None, min_count=5, max_df=0.6):
-        self.dirname = dirname
+    def __init__(self, data_dir, encoding='utf8', metadata={}, cache_path=None, min_count=5, max_df=0.6):
+        self.data_dir = data_dir
         self.encoding = encoding
         self.dictionary = None
         if len(metadata):
@@ -98,7 +98,8 @@ class HnCorpus(object):
         if cache_path is not None:
             self.token_cache_path = cache_path
         else:
-            self.token_cache_path = '%s.tokens.cache' % os.path.basename(dirname)
+            data_dirname = data_dir.rstrip(os.sep).split(os.sep)[-1]
+            self.token_cache_path = '%s.tokens.cache' % data_dirname
         self.token_cache = None
         self.phrases = None
         self.min_count = min_count
@@ -119,14 +120,14 @@ class HnCorpus(object):
             self.token_cache = ArticleTokenCache(self.token_cache_path, self.article_tokens_from_text())
 
     def __contains__(self, article_id):
-        full_filename = os.path.join(self.dirname, "%d.txt" % article_id)
+        full_filename = os.path.join(self.data_dir, "%d.txt" % article_id)
         return os.path.isfile(full_filename)
 
     def stream_articles_text(self, max_count=None):
         count = 0
-        for filename in os.listdir(self.dirname):
+        for filename in os.listdir(self.data_dir):
             article_id = int(os.path.splitext(filename)[0])
-            full_filename = os.path.join(self.dirname, filename)
+            full_filename = os.path.join(self.data_dir, filename)
             if not os.path.isfile(full_filename):
                 continue
             with open(full_filename, 'rb') as f:
@@ -177,7 +178,7 @@ class HnCorpus(object):
         return self.metadata.iloc[idx]
 
     def get_article_text(self, article_id, max_length=None):
-        article_filename = os.path.join(self.dirname, '%d.txt' % article_id)
+        article_filename = os.path.join(self.data_dir, '%d.txt' % article_id)
         with open(article_filename, 'rb') as f:
             if max_length is not None:
                 article_text = decode_bytes(f.read(max_length), self.encoding)
