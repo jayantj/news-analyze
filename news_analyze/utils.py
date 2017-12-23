@@ -21,9 +21,6 @@ nlp = spacy.load('en')
 DATA_DIR = 'data/'
 
 
-def parse_date(timestamp):
-    return timestamp.date()
-
 def parse_month_year(timestamp):
     return datetime.datetime(year=timestamp.year, month=timestamp.month, day=1)
 
@@ -87,14 +84,12 @@ class ArticleTokenCache(object):
 
 
 class HnCorpus(object):
-    def __init__(self, data_dir, encoding='utf8', metadata={}, cache_path=None, min_count=5, max_df=0.6):
+    def __init__(self, data_dir, metadata_file, encoding='utf8', cache_path=None, min_count=5, max_df=0.6):
         self.data_dir = data_dir
         self.encoding = encoding
         self.dictionary = None
-        if len(metadata):
-            metadata['created_at'] = pd.to_datetime(metadata['created_at'])
-            metadata['created_date'] = metadata['created_at'].apply(parse_date)
-        self.metadata = metadata
+        self.metadata_file = metadata_file
+        self.load_metadata()
         if cache_path is not None:
             self.token_cache_path = cache_path
         else:
@@ -104,6 +99,10 @@ class HnCorpus(object):
         self.phrases = None
         self.min_count = min_count
         self.max_df = max_df
+
+    def load_metadata(self):
+        self.metadata = pd.read_csv(self.metadata_file, parse_dates=['created_at'])
+        self.metadata['created_date'] = self.metadata['created_at'].apply(lambda t: t.date())
 
     def init_dict(self, reset=False):
         if self.dictionary is not None and not reset:
@@ -173,7 +172,7 @@ class HnCorpus(object):
         article_id, article_tokens = self.token_cache.get(article_id)
         return self.dictionary.doc2bow(article_tokens)
 
-    def get_articles(self, article_ids):
+    def get_articles_metadata(self, article_ids):
         if not len(self.metadata):
             raise ValueError('Cannot fetch article objects without metadata')
         idx = pd.Index(self.metadata['id']).get_indexer(article_ids)

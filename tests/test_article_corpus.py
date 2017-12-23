@@ -8,12 +8,14 @@ Automated tests for corpuses.
 
 """
 
+import datetime
 import logging
 import os
 import tempfile
 import unittest
 
 from glob import glob
+import pandas as pd
 
 from news_analyze.utils import HnCorpus as ArticleCorpus
 
@@ -37,10 +39,11 @@ class TestArticleCorpus(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.data_dir = datapath('articles')
+        cls.metadata_file = datapath('metadata.csv')
         cls.corpus = ArticleCorpus(
             data_dir=cls.data_dir,
+            metadata_file=cls.metadata_file,
             cache_path=cls.testfile_cls(),
-            metadata={},
             min_count=1,
             max_df=1.0
         )
@@ -86,7 +89,13 @@ class TestArticleCorpus(unittest.TestCase):
 
     def test_cache_for_stream_bow(self):
         cache_path = self.testfile_inst()
-        corpus = ArticleCorpus(self.data_dir, metadata={}, min_count=1, max_df=1.0, cache_path=cache_path)
+        corpus = ArticleCorpus(
+            self.data_dir,
+            metadata_file=self.metadata_file,
+            cache_path=cache_path,
+            min_count=1,
+            max_df=1.0,
+        )
         self.assertTrue(corpus.token_cache is None)
         self.assertFalse(os.path.exists(cache_path))
 
@@ -102,6 +111,19 @@ class TestArticleCorpus(unittest.TestCase):
 
         article_text = self.corpus.get_article_text(10230628, max_length=100)
         self.assertEqual(len(article_text), 100)
+
+    def test_get_articles_metadata(self):
+        metadata = self.corpus.get_articles_metadata([10230628, 10230685])
+        expected_titles = [
+            'China Tries to Extract Pledge of Compliance from U.S. Tech Firms',
+            'Tsunami alert as Chile hit by powerful earthquake'
+        ]
+        expected_dates = [
+            datetime.date(2015, 9, 16),
+            datetime.date(2015, 9, 15)
+        ]
+        self.assertEqual(list(metadata['title']), expected_titles)
+        self.assertEqual(list(metadata['created_date']), expected_dates)
 
     def tearDown(self):
         for test_file in glob(self.testfile_inst() + '*'):
