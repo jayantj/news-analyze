@@ -72,7 +72,8 @@ class FileStreamingCorpus(object):
         return corpus
 
     def load_index(self):
-        self.item_index = pickle.load(open(self.filename + '.idx', 'rb'))
+        with open(self.filename + '.idx', 'rb') as f:
+            self.item_index = pickle.load(f)
 
     def get(self, item_id):
         if not self.item_index:
