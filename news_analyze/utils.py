@@ -219,34 +219,3 @@ class HnCorpus(object):
         print('Article text:\n %s (...)(trimmed)' % article_text)
         print('\n')
 
-
-class HnDtmCorpus(HnCorpus):
-    def get_time_slices(self):
-        article_ids = list(self.stream_article_ids())
-        article_metadata = self.get_articles(article_ids)
-        created_month_year = article_metadata['created_at'].apply(parse_month_year)
-        counts = created_month_year.groupby(created_month_year).count()
-        assert counts.sum() == len(article_ids)
-        return list(counts.values)
-
-    def stream_article_ids(self, max_count=None):
-        if not len(self.metadata):
-            raise ValueError('Cannot use HnDtmCorpus without metadata')
-        for article_id in self.metadata.sort_values('created_at')['id'].values:
-            if article_id in self:
-                yield article_id
-
-    def article_tokens_from_text(self, max_count=None):
-        for article_id in self.stream_article_ids(max_count):
-            article_text = self.get_article_text(article_id)
-            doc = nlp(article_text)
-            article_tokens = [token.lemma_.lower() for token in doc if token.is_alpha]
-            yield article_id, article_tokens
-
-    def article_tokens_from_cache(self, max_count=None):
-        self.init_cache()
-        for i, article_id in enumerate(self.stream_article_ids(), start=1):
-            _, article_tokens = self.token_cache.get(article_id)
-            yield article_id, article_tokens
-            if max_count is not None and i >= max_count:
-                break
