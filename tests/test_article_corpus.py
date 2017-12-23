@@ -65,6 +65,18 @@ class TestArticleCorpus(unittest.TestCase):
         word_count = [count for word_id, count in articles_bow[0][1] if word_id == word_index][0]
         self.assertEqual(word_count, 6)
 
+    def test_stream_bow_with_max_count(self):
+        articles_bow = list(self.corpus.stream_bow(max_count=1))
+        self.assertEqual(len(articles_bow), 1)
+
+        article_id = articles_bow[0][0]
+        self.assertEqual(article_id, 10230628)
+
+        word_of_interest = "internet"
+        word_index = self.corpus.dictionary.token2id[word_of_interest]
+        word_count = [count for word_id, count in articles_bow[0][1] if word_id == word_index][0]
+        self.assertEqual(word_count, 6)
+
     def test_getitem(self):
         word_counts = self.corpus[10230628]
         word_of_interest = "internet"
@@ -81,6 +93,15 @@ class TestArticleCorpus(unittest.TestCase):
         corpus.init_dict()
         self.assertFalse(corpus.token_cache is None)
         self.assertTrue(os.path.exists(cache_path))
+
+    def test_get_article_text(self):
+        article_text = self.corpus.get_article_text(10230628)
+        expected_prefix = "The situation is tricky for American tech companies."
+        self.assertTrue(article_text.startswith(expected_prefix))
+        self.assertEqual(len(article_text), 5416)
+
+        article_text = self.corpus.get_article_text(10230628, max_length=100)
+        self.assertEqual(len(article_text), 100)
 
     def tearDown(self):
         for test_file in glob(self.testfile_inst() + '*'):
