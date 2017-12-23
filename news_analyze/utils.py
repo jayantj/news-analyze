@@ -138,7 +138,8 @@ class HnCorpus(object):
             full_filename = os.path.join(self.dirname, filename)
             if not os.path.isfile(full_filename):
                 continue
-            article_text = open(full_filename, 'rb').read().decode(self.encoding)
+            with open(full_filename, 'rb') as f:
+                article_text = f.read().decode(self.encoding)
             yield article_id, article_text
             count += 1
             if max_count and count >= max_count:
