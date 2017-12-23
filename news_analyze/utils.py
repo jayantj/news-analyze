@@ -42,28 +42,6 @@ def decode_bytes(bytes_, encoding='utf8', max_char_bytes=4):
                     # Text cannot be parsed using given encoding
                     raise
 
-class Article(object):
-    def __init__(self, id_, text, metadata={}, min_points=50):
-        self.id = id_
-        self.text = text
-        self.metadata = metadata
-        self.min_points = min_points
-
-    def __str__(self):
-        return self.text
-
-    @classmethod
-    def init_from_df(cls, df, id_, text):
-        pd_metadata_dict = df[df.id == id_][['title', 'url', 'num_points', 'author', 'created_at']].to_dict()
-        metadata_dict = {}
-        for field, field_dict in pd_metadata_dict.items():
-            assert len(field_dict) == 1
-            metadata_dict[field] = list(field_dict.values())[0]
-        return cls(id_, text, metadata_dict)
-
-    def is_valid(self):
-        return self.metadata['num_points'] >= self.min_points
-
 
 class FileStreamingCorpus(object):
     def __init__(self, filename, stream=None):
@@ -144,17 +122,6 @@ class HnCorpus(object):
                 self.cache = FileStreamingCorpus.init_from_file(self.cache_path)
             else:
                 self.cache = FileStreamingCorpus.init_from_stream(self.article_tokens_from_text(), self.cache_path)
-
-    def stream_articles(self, max_count=None):
-        for article_id, article_text in self.stream_articles_text(max_count):
-            if len(self.metadata):
-                article = Article.init_from_df(self.metadata, article_id, article_text)
-                if article.is_valid():
-                    yield article
-                else:
-                    continue
-            else:
-                yield Article(article_id, article_text)
 
     def __contains__(self, article_id):
         full_filename = os.path.join(self.dirname, "%d.txt" % article_id)
