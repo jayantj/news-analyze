@@ -93,24 +93,28 @@ class FileStreamingCorpus(object):
 
 
 class HnCorpus(object):
-    def __init__(self, dirname, encoding='utf8', preprocess=True, metadata={}, cache_path=None):
+    def __init__(self, dirname, encoding='utf8', metadata={}, cache_path=None, min_count=5, max_df=0.6):
         self.dirname = dirname
         self.encoding = encoding
-        self.preprocess = preprocess
         self.dictionary = None
         if len(metadata):
             metadata['created_at'] = pd.to_datetime(metadata['created_at'])
             metadata['created_date'] = metadata['created_at'].apply(parse_date)
         self.metadata = metadata
-        self.cache_path = cache_path
+        if cache_path is not None:
+            self.cache_path = cache_path
+        else:
+            self.cache_path = '%s.tokens.cache' % os.path.basename(dirname)
         self.cache = None
         self.phrases = None
+        self.min_count = min_count
+        self.max_df = max_df
 
     def init_dict(self, reset=False):
         if self.dictionary is not None and not reset:
             return
         dictionary = Dictionary(article_tokens for _, article_tokens in self.stream_articles_tokens())
-        dictionary.filter_extremes(no_below=5, no_above=0.6)
+        dictionary.filter_extremes(no_below=self.min_count, no_above=self.max_df)
         self.dictionary = dictionary
 
     def init_phrases(self):
