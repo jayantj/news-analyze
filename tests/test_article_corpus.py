@@ -27,9 +27,9 @@ def datapath(fname):
     return os.path.join(module_path, 'data', fname)
 
 
-def testfile():
+def testfile(file_name):
     # temporary data will be stored to this file
-    return os.path.join(tempfile.gettempdir(), 'article_corpus.test')
+    return os.path.join(tempfile.gettempdir(), file_name)
 
 
 class TestArticleCorpus(unittest.TestCase):
@@ -37,8 +37,21 @@ class TestArticleCorpus(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.data_dir = datapath('articles')
-        cls.corpus = ArticleCorpus(cls.data_dir, metadata={}, min_count=1, max_df=1.0)
+        cls.corpus = ArticleCorpus(
+            data_dir=cls.data_dir,
+            cache_path=cls.testfile_cls(),
+            metadata={},
+            min_count=1,
+            max_df=1.0
+        )
         cls.corpus.init_dict()
+
+    def testfile_inst(self):
+        return testfile('article_corpus.test.inst')
+
+    @classmethod
+    def testfile_cls(cls):
+        return testfile('article_corpus.test.cls')
 
     def test_stream_bow(self):
         articles_bow = list(self.corpus.stream_bow())
@@ -60,7 +73,7 @@ class TestArticleCorpus(unittest.TestCase):
         self.assertEqual(word_count, 6)
 
     def test_cache_for_stream_bow(self):
-        cache_path = testfile()
+        cache_path = self.testfile_inst()
         corpus = ArticleCorpus(self.data_dir, metadata={}, min_count=1, max_df=1.0, cache_path=cache_path)
         self.assertTrue(corpus.token_cache is None)
         self.assertFalse(os.path.exists(cache_path))
@@ -69,9 +82,13 @@ class TestArticleCorpus(unittest.TestCase):
         self.assertFalse(corpus.token_cache is None)
         self.assertTrue(os.path.exists(cache_path))
 
+    def tearDown(self):
+        for test_file in glob(self.testfile_inst() + '*'):
+            os.unlink(test_file)
+
     @classmethod
     def tearDownClass(cls):
-        for test_file in glob(testfile() + '*'):
+        for test_file in glob(cls.testfile_cls() + '*'):
             os.unlink(test_file)
 
 
