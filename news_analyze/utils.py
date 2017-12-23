@@ -43,49 +43,42 @@ def decode_bytes(bytes_, encoding='utf8', max_char_bytes=4):
                     raise
 
 
-class FileStreamingCorpus(object):
-    def __init__(self, filename, stream=None):
-        self.filename = filename
+class ArticleTokenCache(object):
+    def __init__(self, file_path=None, stream=None):
+        self.file_path = file_path
         self.stream = stream
         self.item_index = {}
 
-    def save(self):
+        if not os.path.exists(file_path):
+            self.save_to_disk()
+
+    def save_to_disk(self):
         num_bytes_written = 0
         assert self.item_index == {}
-        with open(self.filename, 'wb') as f:
+        with open(self.file_path, 'wb') as f:
             for item_id, item in self.stream:
                 self.item_index[item_id] = num_bytes_written
                 pickled_bytes = pickle.dumps((item_id, item))
                 f.write(pickled_bytes)
                 num_bytes_written += len(pickled_bytes)
-        with open(self.filename + '.idx', 'wb') as f:
+        with open(self.file_path + '.idx', 'wb') as f:
             pickle.dump(self.item_index, f)
 
-    @classmethod
-    def init_from_file(cls, filename):
-        return cls(filename)
-
-    @classmethod
-    def init_from_stream(cls, stream, filename):
-        corpus = cls(filename, stream)
-        corpus.save()
-        return corpus
-
     def load_index(self):
-        with open(self.filename + '.idx', 'rb') as f:
+        with open(self.file_path + '.idx', 'rb') as f:
             self.item_index = pickle.load(f)
 
     def get(self, item_id):
         if not self.item_index:
             self.load_index()
-        with open(self.filename, 'rb') as f:
+        with open(self.file_path, 'rb') as f:
             item_position = self.item_index[item_id]
             f.seek(item_position)
             item = pickle.load(f)
         return item
 
     def __iter__(self):
-        with open(self.filename, 'rb') as f:
+        with open(self.file_path, 'rb') as f:
             while True:
                 try:
                     yield pickle.load(f)
@@ -103,10 +96,10 @@ class HnCorpus(object):
             metadata['created_date'] = metadata['created_at'].apply(parse_date)
         self.metadata = metadata
         if cache_path is not None:
-            self.cache_path = cache_path
+            self.token_cache_path = cache_path
         else:
-            self.cache_path = '%s.tokens.cache' % os.path.basename(dirname)
-        self.cache = None
+            self.token_cache_path = '%s.tokens.cache' % os.path.basename(dirname)
+        self.token_cache = None
         self.phrases = None
         self.min_count = min_count
         self.max_df = max_df
@@ -122,11 +115,8 @@ class HnCorpus(object):
         self.phrases = Phrases(article_tokens for _, article_tokens in self.stream_articles_tokens())
 
     def init_cache(self):
-        if self.cache is None:
-            if os.path.exists(self.cache_path):
-                self.cache = FileStreamingCorpus.init_from_file(self.cache_path)
-            else:
-                self.cache = FileStreamingCorpus.init_from_stream(self.article_tokens_from_text(), self.cache_path)
+        if self.token_cache is None:
+            self.token_cache = ArticleTokenCache(self.token_cache_path, self.article_tokens_from_text())
 
     def __contains__(self, article_id):
         full_filename = os.path.join(self.dirname, "%d.txt" % article_id)
@@ -147,7 +137,7 @@ class HnCorpus(object):
                 break
 
     def stream_articles_tokens(self, max_count=None):
-        if self.cache_path:
+        if self.token_cache_path:
             article_stream = self.article_tokens_from_disk(max_count)
         else:
             article_stream = self.article_tokens_from_text(max_count)
@@ -168,16 +158,16 @@ class HnCorpus(object):
 
     def article_tokens_from_disk(self, max_count=None):
         self.init_cache()
-        for i, (article_id, article_tokens) in enumerate(self.cache, start=1):
+        for i, (article_id, article_tokens) in enumerate(self.token_cache, start=1):
             yield article_id, article_tokens
             if max_count is not None and i >= max_count:
                 break
 
     def __getitem__(self, article_id):
-        if not self.cache_path:
+        if not self.token_cache_path:
             raise ValueError('Cannot fetch random article without cache')
         self.init_cache()
-        article_id, article_tokens = self.cache.get(article_id)
+        article_id, article_tokens = self.token_cache.get(article_id)
         return self.dictionary.doc2bow(article_tokens)
 
     def get_articles(self, article_ids):
@@ -252,7 +242,7 @@ class HnDtmCorpus(HnCorpus):
     def article_tokens_from_disk(self, max_count=None):
         self.init_cache()
         for i, article_id in enumerate(self.stream_article_ids(), start=1):
-            _, article_tokens = self.cache.get(article_id)
+            _, article_tokens = self.token_cache.get(article_id)
             yield article_id, article_tokens
             if max_count is not None and i >= max_count:
                 break

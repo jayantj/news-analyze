@@ -62,11 +62,11 @@ class TestArticleCorpus(unittest.TestCase):
     def test_cache_for_stream_bow(self):
         cache_path = testfile()
         corpus = ArticleCorpus(self.data_dir, metadata={}, min_count=1, max_df=1.0, cache_path=cache_path)
-        self.assertTrue(corpus.cache is None)
+        self.assertTrue(corpus.token_cache is None)
         self.assertFalse(os.path.exists(cache_path))
 
         corpus.init_dict()
-        self.assertFalse(corpus.cache is None)
+        self.assertFalse(corpus.token_cache is None)
         self.assertTrue(os.path.exists(cache_path))
 
     @classmethod
