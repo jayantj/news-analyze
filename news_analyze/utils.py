@@ -23,25 +23,6 @@ import spacy
 nlp = spacy.load('en')
 
 
-def parse_month_year(timestamp):
-    return datetime.datetime(year=timestamp.year, month=timestamp.month, day=1)
-
-def decode_bytes(bytes_, encoding='utf8', max_char_bytes=4):
-    try:
-        return bytes_.decode(encoding, 'strict')
-    except UnicodeDecodeError:
-        # Try skipping last few bytes since they could have been truncated
-        last_bytes_to_ignore = 1
-        while last_bytes_to_ignore < max_char_bytes:
-            try:
-                return bytes_[:-last_bytes_to_ignore].decode(encoding, 'strict')
-            except UnicodeDecodeError:
-                last_bytes_to_ignore += 1
-                if last_bytes_to_ignore == max_char_bytes:
-                    # Text cannot be parsed using given encoding
-                    raise
-
-
 class ArticleTokenCache(object):
     def __init__(self, file_path=None, stream=None):
         self.file_path = file_path
@@ -177,10 +158,9 @@ class HnCorpus(object):
     def get_article_text(self, article_id, max_length=None):
         article_filename = os.path.join(self.data_dir, '%d.txt' % article_id)
         with open(article_filename, 'rb') as f:
-            if max_length is not None:
-                article_text = decode_bytes(f.read(max_length), self.encoding)
-            else:
-                article_text = f.read().decode(self.encoding)
+            article_text = f.read(max_length).decode(self.encoding)
+        if max_length is not None:
+            article_text = article_text[:max_length]
         return article_text
 
     def __iter__(self):
