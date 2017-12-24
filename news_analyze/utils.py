@@ -86,12 +86,13 @@ class ArticleTokenCache(object):
 
 
 class HnCorpus(object):
+
     def __init__(self, data_dir, metadata_file, encoding='utf8', cache_path=None, min_count=5, max_df=0.6):
         self.data_dir = data_dir
         self.encoding = encoding
         self.dictionary = None
         self.metadata_file = metadata_file
-        self.load_metadata()
+        self._load_metadata()
         if cache_path is not None:
             self.token_cache_path = cache_path
         else:
@@ -102,22 +103,22 @@ class HnCorpus(object):
         self.min_count = min_count
         self.max_df = max_df
 
-    def load_metadata(self):
+    def _load_metadata(self):
         self.metadata = pd.read_csv(self.metadata_file, parse_dates=['created_at'])
         self.metadata['created_date'] = self.metadata['created_at'].apply(lambda t: t.date())
 
     def init_dict(self, reset=False):
         if self.dictionary is not None and not reset:
             return
-        dictionary = Dictionary(article_tokens for _, article_tokens in self.stream_articles_tokens())
+        dictionary = Dictionary(article_tokens for _, article_tokens in self._stream_articles_tokens())
         dictionary.filter_extremes(no_below=self.min_count, no_above=self.max_df)
         self.dictionary = dictionary
 
-    def init_cache(self):
+    def _init_cache(self):
         if self.token_cache is None:
-            self.token_cache = ArticleTokenCache(self.token_cache_path, self.article_tokens_from_text())
+            self.token_cache = ArticleTokenCache(self.token_cache_path, self._article_tokens_from_text())
 
-    def stream_articles_text(self, max_count=None):
+    def _stream_articles_text(self, max_count=None):
         count = 0
         for filename in os.listdir(self.data_dir):
             article_id = int(os.path.splitext(filename)[0])
@@ -131,30 +132,30 @@ class HnCorpus(object):
             if max_count and count >= max_count:
                 break
 
-    def stream_articles_tokens(self, max_count=None):
+    def _stream_articles_tokens(self, max_count=None):
         if self.token_cache_path:
-            article_stream = self.article_tokens_from_cache(max_count)
+            article_stream = self._article_tokens_from_cache(max_count)
         else:
-            article_stream = self.article_tokens_from_text(max_count)
+            article_stream = self._article_tokens_from_text(max_count)
         if self.phrases is None:
             return article_stream
         else:
             return ((article_id, self.phrases[article_tokens]) for article_id, article_tokens in article_stream)
 
-    def article_tokens_from_text(self, max_count=None):
-        for i, (article_id, article_text) in enumerate(self.stream_articles_text(max_count), start=1):
-            yield article_id, self.text_to_tokens(article_text)
+    def _article_tokens_from_text(self, max_count=None):
+        for i, (article_id, article_text) in enumerate(self._stream_articles_text(max_count), start=1):
+            yield article_id, self._text_to_tokens(article_text)
             if max_count is not None and i >= max_count:
                 break
 
     @staticmethod
-    def text_to_tokens(article_text):
+    def _text_to_tokens(article_text):
         doc = nlp(article_text)
         article_tokens = [token.lemma_.lower() for token in doc if token.is_alpha]
         return article_tokens
 
-    def article_tokens_from_cache(self, max_count=None):
-        self.init_cache()
+    def _article_tokens_from_cache(self, max_count=None):
+        self._init_cache()
         for i, (article_id, article_tokens) in enumerate(self.token_cache, start=1):
             yield article_id, article_tokens
             if max_count is not None and i >= max_count:
@@ -163,7 +164,7 @@ class HnCorpus(object):
     def __getitem__(self, article_id):
         if not self.token_cache_path:
             raise ValueError('Cannot fetch random article without cache')
-        self.init_cache()
+        self._init_cache()
         article_id, article_tokens = self.token_cache.get(article_id)
         return self.dictionary.doc2bow(article_tokens)
 
@@ -187,7 +188,7 @@ class HnCorpus(object):
 
     def stream_bow(self, max_count=None, stream_ids=True):
         self.init_dict()
-        for article_id, article_tokens in self.stream_articles_tokens(max_count):
+        for article_id, article_tokens in self._stream_articles_tokens(max_count):
             if stream_ids:
                 yield article_id, self.dictionary.doc2bow(article_tokens)
             else:
