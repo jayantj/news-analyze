@@ -67,7 +67,7 @@ class ArticleTokenCache(object):
                     break
 
 
-class HnCorpus(object):
+class ArticleCorpus(object):
 
     def __init__(self, data_dir, metadata_file, encoding='utf8', cache_path=None, min_count=5, max_df=0.6):
         self.data_dir = data_dir

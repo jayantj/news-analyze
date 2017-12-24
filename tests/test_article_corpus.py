@@ -17,7 +17,7 @@ import unittest
 from glob import glob
 import pandas as pd
 
-from news_analyze.utils import HnCorpus as ArticleCorpus
+from news_analyze.utils import ArticleCorpus
 
 
 module_path = os.path.dirname(__file__)
