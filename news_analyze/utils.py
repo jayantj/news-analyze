@@ -26,17 +26,18 @@ nlp = spacy.load('en')
 class ArticleTokenCache(object):
     def __init__(self, file_path=None, stream=None):
         self.file_path = file_path
-        self.stream = stream
         self.item_index = {}
 
         if not os.path.exists(file_path):
-            self.save_to_disk()
+            if stream is None:
+                raise ValueError('No stream and non-existent file %s specified' % file_path)
+            self._serialize_stream(stream)
 
-    def save_to_disk(self):
+    def _serialize_stream(self, stream):
         num_bytes_written = 0
         assert self.item_index == {}
         with open(self.file_path, 'wb') as f:
-            for item_id, item in self.stream:
+            for item_id, item in stream:
                 self.item_index[item_id] = num_bytes_written
                 pickled_bytes = pickle.dumps((item_id, item))
                 f.write(pickled_bytes)
@@ -44,13 +45,13 @@ class ArticleTokenCache(object):
         with open(self.file_path + '.idx', 'wb') as f:
             pickle.dump(self.item_index, f)
 
-    def load_index(self):
+    def _load_index(self):
         with open(self.file_path + '.idx', 'rb') as f:
             self.item_index = pickle.load(f)
 
     def get(self, item_id):
         if not self.item_index:
-            self.load_index()
+            self._load_index()
         with open(self.file_path, 'rb') as f:
             item_position = self.item_index[item_id]
             f.seek(item_position)
