@@ -96,7 +96,11 @@ class ArticleCorpus(object):
         return corpus
 
     def _load_metadata(self):
-        self.metadata = pd.read_csv(self.metadata_file, parse_dates=['created_at'])
+        required_fields = {'title', 'url', 'created_at'}
+        metadata = pd.read_csv(self.metadata_file, parse_dates=['created_at'])
+        if not required_fields.issubset(set(metadata.keys())):
+            raise ValueError('All required fields %s not present in metadata fields' % required_fields)
+        self.metadata = metadata
         self.metadata['created_date'] = self.metadata['created_at'].apply(lambda t: t.date())
 
     def init_dict(self, reset=False):

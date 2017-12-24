@@ -145,6 +145,16 @@ class TestArticleCorpus(unittest.TestCase):
         self.assertEqual(len(loaded_corpus.dictionary), len(self.corpus.dictionary))
         self.assertEqual(loaded_corpus.dictionary.token2id, self.corpus.dictionary.token2id)
 
+    def test_incomplete_metadata_raises_error(self):
+        with self.assertRaises(ValueError):
+            ArticleCorpus(
+                self.data_dir,
+                metadata_file=datapath('incomplete_metadata.csv'),
+                cache_path=self.testfile_inst(),
+                min_count=1,
+                max_df=1.0,
+            )
+
     def tearDown(self):
         for test_file in glob(self.testfile_inst() + '*'):
             os.unlink(test_file)
