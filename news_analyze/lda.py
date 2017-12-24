@@ -21,8 +21,6 @@ import plotly.graph_objs as go
 from sklearn.cluster import SpectralClustering
 from sklearn.metrics import silhouette_score, silhouette_samples
 
-from .utils import HnCorpus, parse_date
-
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +76,8 @@ class HnLdaModel(object):
                 )
         self.save_article_topics()
         self.save_topic_words()
+        self.init_topic_similarity_matrices()
+        self.init_topic_scores()
 
     def infer_topics(self, article_bows):
         return [self.model.__getitem__(article_bow, eps=0.0) for article_bow in article_bows]
@@ -106,8 +106,6 @@ class HnLdaModel(object):
                         len(article_topics), len(article_topic_matrix), article_id)
             chunk = list(islice(article_stream, chunk_size))
         self.article_topic_matrix = np.array(article_topic_matrix)
-        self.init_topic_similarity_matrices()
-        self.init_topic_scores()
 
     def print_topic_row(self, topic_ids, topic_scores=[], top_n=10):
         topic_labels = ["Topic #%d" % topic_id for topic_id in topic_ids]
@@ -476,6 +474,7 @@ class HnLdaModel(object):
             for topic_id in topic_ids
         ]
         return go.Figure(data=data, layout=layout)
+
 
 class HnLdaMalletModel(HnLdaModel):
     def __init__(self, mallet_path, corpus, workers=1, **model_params):
