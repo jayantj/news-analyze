@@ -125,6 +125,14 @@ class TestArticleCorpus(unittest.TestCase):
         self.assertEqual(list(metadata['title']), expected_titles)
         self.assertEqual(list(metadata['created_date']), expected_dates)
 
+    def test_get_bow_from_text(self):
+        article_text = "Uber, Apple, Google, IBM, Uh-uh"
+        tokens = ["uber", "apple", "google", "ibm"]
+        expected_token_ids = set(self.corpus.dictionary.token2id[token] for token in tokens)
+        bow = self.corpus.get_bow_from_text(article_text)
+        actual_token_ids = set(token_id for token_id, _ in bow)
+        self.assertEqual(expected_token_ids, actual_token_ids)
+
     def tearDown(self):
         for test_file in glob(self.testfile_inst() + '*'):
             os.unlink(test_file)

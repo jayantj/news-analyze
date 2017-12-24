@@ -163,6 +163,9 @@ class HnCorpus(object):
             article_text = article_text[:max_length]
         return article_text
 
+    def get_bow_from_text(self, article_text):
+        return self.dictionary.doc2bow(self._text_to_tokens(article_text))
+
     def __iter__(self):
         return self.stream_bow(stream_ids=False)
 
