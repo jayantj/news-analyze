@@ -113,16 +113,9 @@ class HnCorpus(object):
         dictionary.filter_extremes(no_below=self.min_count, no_above=self.max_df)
         self.dictionary = dictionary
 
-    def init_phrases(self):
-        self.phrases = Phrases(article_tokens for _, article_tokens in self.stream_articles_tokens())
-
     def init_cache(self):
         if self.token_cache is None:
             self.token_cache = ArticleTokenCache(self.token_cache_path, self.article_tokens_from_text())
-
-    def __contains__(self, article_id):
-        full_filename = os.path.join(self.data_dir, "%d.txt" % article_id)
-        return os.path.isfile(full_filename)
 
     def stream_articles_text(self, max_count=None):
         count = 0
@@ -199,13 +192,6 @@ class HnCorpus(object):
                 yield article_id, self.dictionary.doc2bow(article_tokens)
             else:
                 yield self.dictionary.doc2bow(article_tokens)
-
-    def plot_articles(self, article_ids, window_size=5):
-        created_date = self.metadata[self.metadata.id.isin(article_ids)]['created_date']
-        created_date_counts = created_date.value_counts().sort_index()
-        created_date_counts = pd.rolling_mean(created_date_counts, window=window_size, center=True)
-        plot_data = [go.Scatter(x=created_date_counts.index, y=created_date_counts.values)]
-        return py.iplot(plot_data)
 
     def print_article(self, article_id, max_article_length=500, score=None):
         article_metadata = self.get_articles([article_id]).iloc[0]
