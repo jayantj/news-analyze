@@ -133,6 +133,18 @@ class TestArticleCorpus(unittest.TestCase):
         actual_token_ids = set(token_id for token_id, _ in bow)
         self.assertEqual(expected_token_ids, actual_token_ids)
 
+    def test_save_load(self):
+        corpus_file = self.testfile_inst()
+        self.corpus.save(corpus_file)
+        loaded_corpus = ArticleCorpus.load(corpus_file)
+
+        old_articles_bow = list(self.corpus.stream_bow())
+        new_articles_bow = list(loaded_corpus.stream_bow())
+        self.assertEqual(old_articles_bow, new_articles_bow)
+
+        self.assertEqual(len(loaded_corpus.dictionary), len(self.corpus.dictionary))
+        self.assertEqual(loaded_corpus.dictionary.token2id, self.corpus.dictionary.token2id)
+
     def tearDown(self):
         for test_file in glob(self.testfile_inst() + '*'):
             os.unlink(test_file)

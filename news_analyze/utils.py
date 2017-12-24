@@ -85,6 +85,16 @@ class HnCorpus(object):
         self.min_count = min_count
         self.max_df = max_df
 
+    def save(self, file_path):
+        with open(file_path, 'wb') as f:
+            pickle.dump(self, f)
+
+    @classmethod
+    def load(self, file_path):
+        with open(file_path, 'rb') as f:
+            corpus = pickle.load(f)
+        return corpus
+
     def _load_metadata(self):
         self.metadata = pd.read_csv(self.metadata_file, parse_dates=['created_at'])
         self.metadata['created_date'] = self.metadata['created_at'].apply(lambda t: t.date())
